@@ -60,8 +60,8 @@ input, textarea, button { font: inherit; }
 
 .primary-nav { position: relative; }
 .primary-nav button.nav-toggle { display: none; }
-.primary-nav ul { list-style: none; display: flex; margin: 0; padding: 0; gap: 1.25rem; }
-.primary-nav a, .primary-nav button.theme-toggle { color: var(--text-dim); text-decoration: none; background: none; border: none; cursor: pointer; font: inherit; padding: .75rem .25rem; border-radius: var(--radius-sm); }
+.primary-nav ul { list-style: none; display: flex; margin-top: 0; padding: 0; gap: 1.25rem; }
+.primary-nav a, .primary-nav button.theme-toggle { color: orange; text-decoration: none; background: none; border: none; cursor: pointer; font:bold; padding: .75rem .25rem; border-radius: var(--radius-sm); }
 .primary-nav a:hover, .primary-nav a:focus, .primary-nav button.theme-toggle:hover { color: var(--text); }
 .primary-nav a:focus-visible, .primary-nav button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
