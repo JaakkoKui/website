@@ -11,15 +11,11 @@
       }
       .game-frame {
         width: 100%;
-        aspect-ratio: 16 / 9;
+        height: 600px;
         background: #111;
         border: 1px solid #27313d;
         border-radius: var(--radius);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #555;
-        font-size: 1rem;
+        display: block;
       }
       .breadcrumb {
         font-size: 0.85rem;
@@ -34,23 +30,32 @@
   <body>
     <div class="wrap">
       <p class="breadcrumb"><a href="../index.html">← Etusivulle</a></p>
-      <h1>Game Portal</h1>
+      <h1>Ketunkolo - The Game</h1>
       <p>
-        This page will host embedded builds (WebGL / HTML5 / etc.). For now it's
-        a placeholder.
+        Pelaa Ketunkolo-peliä suoraan selaimessa! Peli on tehty Pygame:lla ja
+        muunnettu web-versioksi Pygbag:illa.
       </p>
-      <div class="game-frame" id="gameFrame">Upload your game build here.</div>
-      <h2>How to Add a Build</h2>
-      <ol>
-        <li>Create a folder under <code>games/your-game-name/</code></li>
-        <li>
-          Export / copy your build files there (e.g., index.html, assets, build
-          data)
-        </li>
-        <li>Link to it from this page or embed via iframe.</li>
-      </ol>
-      <p>Example iframe snippet once you have a build:</p>
-      <pre><code>&lt;iframe src="games/your-game-name/index.html" title="Your Game" loading="lazy" allowfullscreen class="embed"&gt;&lt;/iframe&gt;</code></pre>
+      <iframe
+        src="web/index.html"
+        title="Ketunkolo Game"
+        loading="lazy"
+        allowfullscreen
+        class="game-frame"
+        style="border: none"
+      ></iframe>
+      <h2>Tietoja pelistä</h2>
+      <p>
+        Ketunkolo on Python/Pygame-peli joka on muunnettu web-versioksi
+        käyttämällä
+        <a href="https://pygame-web.github.io/" target="_blank">Pygbag</a
+        >-työkalua. Peli latautuu hetken kuluttaa yllä olevaan ikkunaan.
+      </p>
+
+      <h3>Lisää pelejä?</h3>
+      <p>
+        Voit lisätä lisää pelejä luomalla uusia kansioita
+        <code>games/</code> alle ja upottamalla ne tähän sivuun.
+      </p>
     </div>
   </body>
 </html>
