@@ -1,0 +1,118 @@
+/* Ketunkolo Club Base Styles */
+:root {
+  --bg: #0d1117;
+  --bg-alt: #161b22;
+  --bg-panel: #1e2530;
+  --text: #e6edf3;
+  --text-dim: #94a3b8;
+  --accent: #ff7b29;
+  --accent-accent: #ffae66;
+  --focus: #ffcc66;
+  --radius-sm: 4px;
+  --radius: 10px;
+  --radius-lg: 20px;
+  --shadow: 0 4px 16px -4px rgba(0,0,0,.5);
+  --font-stack: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;
+  --transition: 140ms ease;
+}
+
+[data-theme="light"] {
+  --bg: #f5f7fa;
+  --bg-alt: #e9eef3;
+  --bg-panel: #ffffff;
+  --text: #1b2430;
+  --text-dim: #475569;
+  --accent: #c25100;
+  --accent-accent: #ff8c38;
+  --focus: #ff7b29;
+  --shadow: 0 4px 16px -4px rgba(0,0,0,.15);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: var(--font-stack);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+img { max-width: 100%; display: block; }
+input, textarea, button { font: inherit; }
+
+.skip-link {
+  position: absolute; left: -999px; top: -999px;
+}
+.skip-link:focus { left: 0; top: 0; background: var(--accent); color: #fff; padding: .75rem 1rem; z-index: 1000; }
+
+.wrap { width: min(1100px, 100% - 3rem); margin: 0 auto; }
+
+.site-header {
+  position: sticky; top: 0; z-index: 50; backdrop-filter: blur(10px);
+  background: linear-gradient(to bottom, rgba(13,17,23,.9), rgba(13,17,23,.6));
+  border-bottom: 1px solid #242c37;
+}
+.site-header .wrap { display: flex; align-items: center; justify-content: space-between; }
+.logo { font-weight: 600; font-size: 1.25rem; display: flex; align-items: center; gap: .4rem; }
+.logo .fox { filter: drop-shadow(0 2px 2px rgba(0,0,0,.4)); }
+
+.primary-nav { position: relative; }
+.primary-nav button.nav-toggle { display: none; }
+.primary-nav ul { list-style: none; display: flex; margin: 0; padding: 0; gap: 1.25rem; }
+.primary-nav a, .primary-nav button.theme-toggle { color: var(--text-dim); text-decoration: none; background: none; border: none; cursor: pointer; font: inherit; padding: .75rem .25rem; border-radius: var(--radius-sm); }
+.primary-nav a:hover, .primary-nav a:focus, .primary-nav button.theme-toggle:hover { color: var(--text); }
+.primary-nav a:focus-visible, .primary-nav button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+@media (max-width: 780px) {
+  .primary-nav button.nav-toggle { display: inline-flex; background: var(--bg-alt); color: var(--text); border: 1px solid #2d3744; padding: .6rem .9rem; border-radius: var(--radius-sm); }
+  .primary-nav ul { position: absolute; right: 0; top: 100%; flex-direction: column; background: var(--bg-alt); padding: .75rem; border: 1px solid #2a313d; border-radius: var(--radius); box-shadow: var(--shadow); min-width: 200px; display: none; }
+  .primary-nav ul.open { display: flex; }
+  .primary-nav a, .primary-nav button.theme-toggle { width: 100%; text-align: left; }
+}
+
+.hero { position: relative; padding: clamp(4rem, 12vh, 8rem) 0 4rem; overflow: hidden; }
+.hero .tagline { font-size: 1.3rem; max-width: 600px; }
+.hero .btn { margin-right: .75rem; }
+.hero-bg { position: absolute; inset: 0; background: radial-gradient(circle at 30% 40%, #ff7b29 0%, transparent 55%), radial-gradient(circle at 80% 70%, #ffae66 0%, transparent 60%); opacity: .15; pointer-events: none; }
+
+.panel { padding: 4.5rem 0; background: var(--bg); }
+.panel.alt { background: var(--bg-alt); }
+.panel h2 { margin-top: 0; font-size: clamp(1.8rem, 2.5rem, 3rem); }
+
+.feature-list { list-style: none; margin: 2.5rem 0 0; padding: 0; display: grid; gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.feature-list h3 { margin: 0 0 .5rem; }
+
+.cards { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin-top: 2rem; }
+.card { background: var(--bg-panel); padding: 1.25rem 1.1rem 1.4rem; border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid #27313d; }
+.card h3 { margin-top: 0; }
+
+.game-embed-placeholder { background: repeating-linear-gradient(45deg, #1c2430, #1c2430 10px, #1a202b 10px, #1a202b 20px); padding: 2rem; border-radius: var(--radius-lg); border: 1px solid #27313d; box-shadow: var(--shadow); }
+.game-embed-placeholder p { margin-top: 0; }
+
+.contact-form { margin-top: 2rem; display: grid; gap: 1.25rem; }
+.contact-form .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.contact-form input, .contact-form textarea { width: 100%; padding: .75rem .85rem; background: var(--bg-panel); color: var(--text); border: 1px solid #2a313d; border-radius: var(--radius-sm); resize: vertical; }
+[data-theme="light"] .contact-form input, [data-theme="light"] .contact-form textarea { background: var(--bg-alt); }
+.contact-form input:focus-visible, .contact-form textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.form-actions { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.form-status { min-height: 1.3rem; font-size: .9rem; }
+
+.btn { --btn-bg: var(--bg-panel); --btn-color: var(--text); --btn-border: #2a313d; display: inline-block; text-decoration: none; padding: .85rem 1.25rem .9rem; font-weight: 500; background: var(--btn-bg); color: var(--btn-color); border-radius: var(--radius-sm); border: 1px solid var(--btn-border); transition: var(--transition); cursor: pointer; }
+.btn.primary { --btn-bg: var(--accent); --btn-color: #fff; --btn-border: #ff7b29; }
+.btn.ghost { background: transparent; }
+.btn:hover, .btn:focus-visible { filter: brightness(1.08); }
+.btn:active { transform: translateY(2px); }
+
+.theme-toggle { font-size: 1.1rem; }
+
+.site-footer { background: #0b1016; padding: 2.5rem 0 3rem; margin-top: 3rem; border-top: 1px solid #242c37; font-size: .9rem; color: var(--text-dim); }
+.site-footer p { margin: .4rem 0; }
+.site-footer a { color: var(--accent-accent); }
+
+.small { font-size: .8rem; }
+
+/* Utilities */
+.hidden { display: none !important; }
+.visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; border: 0 !important; }

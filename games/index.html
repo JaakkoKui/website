@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ketunkolo Game Portal</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+  <style>
+    body { padding-top: 2rem; }
+    .game-frame { width: 100%; aspect-ratio: 16 / 9; background:#111; border:1px solid #27313d; border-radius: var(--radius); display:flex; align-items:center; justify-content:center; color:#555; font-size:1rem; }
+    .breadcrumb { font-size:.85rem; margin-bottom:1rem; }
+    .breadcrumb a { color: var(--accent-accent); text-decoration:none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p class="breadcrumb"><a href="../index.html">← Back to main site</a></p>
+    <h1>Game Portal</h1>
+    <p>This page will host embedded builds (WebGL / HTML5 / etc.). For now it's a placeholder.</p>
+    <div class="game-frame" id="gameFrame">Upload your game build here.</div>
+    <h2>How to Add a Build</h2>
+    <ol>
+      <li>Create a folder under <code>games/your-game-name/</code></li>
+      <li>Export / copy your build files there (e.g., index.html, assets, build data)</li>
+      <li>Link to it from this page or embed via iframe.</li>
+    </ol>
+    <p>Example iframe snippet once you have a build:</p>
+    <pre><code>&lt;iframe src="games/your-game-name/index.html" title="Your Game" loading="lazy" allowfullscreen class="embed"&gt;&lt;/iframe&gt;</code></pre>
+  </div>
+</body>
+</html>
