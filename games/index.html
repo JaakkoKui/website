@@ -3,59 +3,151 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Ketunkolo The Game</title>
+    <title>Ketunkolo Games</title>
     <link rel="stylesheet" href="../css/styles.css" />
     <style>
-      body {
-        padding-top: 2rem;
+      :root {
+        --radius: 10px;
+        --card: #0b111b;
+        --card-b: #27313d;
+        --accent: #ff7b29;
       }
-      .game-frame {
-        width: 100%;
-        height: 600px;
-        background: #111;
-        border: 1px solid #27313d;
-        border-radius: var(--radius);
-        display: block;
+      body {
+        padding: 2rem;
+        color: #e6edf3;
+        background: #0d1117;
+        font-family: system-ui, sans-serif;
+      }
+      .wrap {
+        max-width: 1100px;
+        margin: 0 auto;
       }
       .breadcrumb {
-        font-size: 0.85rem;
+        font-size: 0.9rem;
         margin-bottom: 1rem;
       }
       .breadcrumb a {
-        color: var(--accent-accent);
+        color: #9acaff;
         text-decoration: none;
+      }
+      .game-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin: 1rem 0 1.25rem;
+        padding: 0;
+        list-style: none;
+      }
+      .game-list a {
+        display: inline-block;
+        padding: 0.55rem 0.8rem;
+        background: var(--card);
+        border: 1px solid var(--card-b);
+        border-radius: 8px;
+        color: inherit;
+        text-decoration: none;
+      }
+      .game-list a.active {
+        border-color: var(--accent);
+        background: #161b22;
+      }
+      .game-frame {
+        width: 100%;
+        height: 70vh;
+        min-height: 520px;
+        background: #111;
+        border: 1px solid var(--card-b);
+        border-radius: var(--radius);
+        display: block;
+      }
+      #game-error {
+        margin: 0.5rem 0;
+        color: #f88;
+        font-weight: 600;
+        display: none;
       }
     </style>
   </head>
   <body>
     <div class="wrap">
       <p class="breadcrumb"><a href="../index.html">← Etusivulle</a></p>
-      <h1>Ketunkolo - The Game</h1>
-      <p>
-        Pelaa Ketunkolo-peliä suoraan selaimessa! Peli on tehty Pygame:lla ja
-        muunnettu web-versioksi Pygbag:illa.
-      </p>
+      <h1>Pelit</h1>
+      <p>Valitse peli listasta. Peli avautuu alla olevaan ikkunaan.</p>
+
+      <ul class="game-list" id="game-list">
+        <li><a href="?g=web" data-game="web">Ketunkolo (web)</a></li>
+        <li><a href="?g=v2" data-game="v2">Ketunkolo v2</a></li>
+      </ul>
+
       <iframe
-        src="web/index.html"
-        title="Ketunkolo Game"
+        id="game-frame"
+        title="Game"
         loading="lazy"
         allowfullscreen
         class="game-frame"
         style="border: none"
       ></iframe>
-      <!-- <h2>Tietoja pelistä</h2>
-      <p>
-        Ketunkolo on Python/Pygame-peli joka on muunnettu web-versioksi
-        käyttämällä
-        <a href="https://pygame-web.github.io/" target="_blank">Pygbag</a
-        >-työkalua. Peli latautuu hetken kuluttaa yllä olevaan ikkunaan.
-      </p>
+      <div id="game-error"></div>
 
-      <h3>Lisää pelejä?</h3>
-      <p>
-        Voit lisätä lisää pelejä luomalla uusia kansioita
-        <code>games/</code> alle ja upottamalla ne tähän sivuun. -->
-      </p>
+      <script>
+        (function () {
+          const frame = document.getElementById("game-frame");
+          const links = document.querySelectorAll("#game-list a[data-game]");
+          const err = document.getElementById("game-error");
+
+          // Prefer inside /games/, fall back to project root ../v2 if needed
+          const map = {
+            web: ["web/index.html"],
+            v2: ["v2/index.html", "../v2/index.html"],
+          };
+
+          const params = new URLSearchParams(location.search);
+          const current = params.get("g") || "web";
+
+          async function exists(url) {
+            try {
+              const r = await fetch(url, { method: "HEAD", cache: "no-store" });
+              return r.ok;
+            } catch {
+              return false;
+            }
+          }
+
+          async function resolveSrc(key) {
+            const candidates = map[key] || map.web;
+            for (const url of candidates) if (await exists(url)) return url;
+            return null;
+          }
+
+          async function setGame(key) {
+            err.style.display = "none";
+            const src = await resolveSrc(key);
+            if (src) {
+              frame.src = src;
+            } else {
+              frame.removeAttribute("src");
+              err.textContent = `Game "${key}" not found. Checked: ${(
+                map[key] || []
+              ).join(", ")}`;
+              err.style.display = "block";
+            }
+            links.forEach((a) =>
+              a.classList.toggle("active", a.dataset.game === key)
+            );
+          }
+
+          setGame(current);
+
+          links.forEach((a) =>
+            a.addEventListener("click", (e) => {
+              e.preventDefault();
+              const key = a.dataset.game;
+              history.replaceState(null, "", "?g=" + encodeURIComponent(key));
+              setGame(key);
+            })
+          );
+        })();
+      </script>
     </div>
   </body>
 </html>
