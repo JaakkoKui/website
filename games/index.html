@@ -23,18 +23,25 @@
         margin: 0 auto;
       }
       .breadcrumb {
-        font-size: 0.9rem;
-        margin-bottom: 1rem;
+        font-size: 0.85rem;
+        margin-bottom: 0.5rem;
       }
       .breadcrumb a {
         color: #9acaff;
         text-decoration: none;
       }
+      h1 {
+        margin: 0 0 0.25rem;
+        font-size: 1.6rem;
+      }
+      .lead {
+        margin: 0.25rem 0 0.75rem;
+      }
       .game-list {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.5rem;
-        margin: 1rem 0 1.25rem;
+        gap: 0.4rem;
+        margin: 0.5rem 0 0.75rem;
         padding: 0;
         list-style: none;
       }
@@ -51,6 +58,28 @@
         border-color: var(--accent);
         background: #161b22;
       }
+
+      /* New: list + fullscreen on one row */
+      .controls {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin: 0.25rem 0 0.5rem;
+      }
+      .controls .fs-btn {
+        margin-left: auto;
+        background: var(--card);
+        border: 1px solid var(--card-b);
+        color: inherit;
+        padding: 0.4rem 0.7rem;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .controls .fs-btn:hover {
+        border-color: var(--accent);
+      }
+
       .game-frame {
         width: 100%;
         height: 70vh;
@@ -59,6 +88,7 @@
         border: 1px solid var(--card-b);
         border-radius: var(--radius);
         display: block;
+        margin-bottom: 8px; /* tiny bottom margin */
       }
       #game-error {
         margin: 0.5rem 0;
@@ -72,12 +102,18 @@
     <div class="wrap">
       <p class="breadcrumb"><a href="../index.html">← Etusivulle</a></p>
       <h1>Pelit</h1>
-      <p>Valitse peli listasta. Peli avautuu alla olevaan ikkunaan.</p>
+      <p class="lead">
+        Valitse peli listasta. Peli avautuu alla olevaan ikkunaan.
+      </p>
 
-      <ul class="game-list" id="game-list">
-        <li><a href="?g=web" data-game="web">Ketunkolo (web)</a></li>
-        <li><a href="?g=v2" data-game="v2">Ketunkolo v2</a></li>
-      </ul>
+      <!-- Replace the separate list + toolbar with a single controls row -->
+      <div class="controls">
+        <ul class="game-list" id="game-list">
+          <li><a href="?g=web" data-game="web">Ketunkolo (web)</a></li>
+          <li><a href="?g=v2" data-game="v2">Ketunkolo v2</a></li>
+        </ul>
+        <button id="fs-btn" type="button" class="fs-btn">Fullscreen</button>
+      </div>
 
       <iframe
         id="game-frame"
@@ -94,6 +130,7 @@
           const frame = document.getElementById("game-frame");
           const links = document.querySelectorAll("#game-list a[data-game]");
           const err = document.getElementById("game-error");
+          const fsBtn = document.getElementById("fs-btn");
 
           // Prefer inside /games/, fall back to project root ../v2 if needed
           const map = {
@@ -146,6 +183,32 @@
               setGame(key);
             })
           );
+
+          // Fullscreen toggle
+          function isFs() {
+            return (
+              document.fullscreenElement || document.webkitFullscreenElement
+            );
+          }
+          function updateFsBtn() {
+            fsBtn.textContent = isFs() ? "Exit Fullscreen" : "Fullscreen";
+          }
+          function enterFs(el) {
+            if (el.requestFullscreen) return el.requestFullscreen();
+            if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen(); // Safari
+          }
+          function exitFs() {
+            if (document.exitFullscreen) return document.exitFullscreen();
+            if (document.webkitExitFullscreen)
+              return document.webkitExitFullscreen();
+          }
+          fsBtn.addEventListener("click", () => {
+            if (isFs()) exitFs();
+            else enterFs(frame);
+          });
+          document.addEventListener("fullscreenchange", updateFsBtn);
+          document.addEventListener("webkitfullscreenchange", updateFsBtn);
+          updateFsBtn();
         })();
       </script>
     </div>
