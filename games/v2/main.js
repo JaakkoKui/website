@@ -2,6 +2,7 @@
 import Level1 from "./scenes/level1.js";
 import { Level2Scene } from "./scenes/level2.js";
 import { IntroCutscene } from "./cutscenes/intro.js";
+import Combat from "./core/combat.js";
 
 class BootScene extends Phaser.Scene {
   constructor() {
@@ -25,7 +26,7 @@ const config = {
   backgroundColor: "#1d1d1d",
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   physics: { default: "arcade", arcade: { debug: false } },
-  scene: [BootScene, IntroCutscene, Level1, Level2Scene],
+  scene: [BootScene, IntroCutscene, Level1, Level2Scene, Combat],
 };
 
 new Phaser.Game(config);

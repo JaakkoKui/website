@@ -112,8 +112,14 @@ export class StoryTeller {
 
     // Shadow
     this.shadowGraphics.clear();
+    const shadowAlpha = Math.max(0, Math.min(1, this.alpha));
     this.shadowGraphics.fillStyle(
-      Phaser.Display.Color.GetColor32(80, 80, 80, Math.floor(this.alpha * 128)),
+      Phaser.Display.Color.GetColor32(
+        80,
+        80,
+        80,
+        Math.floor(shadowAlpha * 128),
+      ),
     );
     this.shadowGraphics.fillRoundedRect(
       boxX + 6,
@@ -129,13 +135,13 @@ export class StoryTeller {
       255,
       255,
       245,
-      Math.floor(this.alpha * 255),
+      Math.floor(shadowAlpha * 255),
     );
     const borderColor = Phaser.Display.Color.GetColor32(
       40,
       40,
       40,
-      Math.floor(this.alpha * 255),
+      Math.floor(shadowAlpha * 255),
     );
     this.boxGraphics.fillStyle(boxColor);
     this.boxGraphics.fillRoundedRect(boxX, boxY, boxWidth, boxHeight, 18);

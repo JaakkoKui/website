@@ -16,6 +16,7 @@ export default class Level1 extends Phaser.Scene {
     this.showDrinkPrompt = false;
     this.didDrink = false;
     this.wins = 0;
+    this.inCombat = false;
   }
 
   preload() {
@@ -36,7 +37,7 @@ export default class Level1 extends Phaser.Scene {
       .setOrigin(0)
       .setDisplaySize(width, height);
 
-    this.player = this.add.image(width * 0.25, 700, "frownFox");
+    this.player = this.add.image(width * 0.25, 550, "frownFox");
     this.player.setOrigin(0);
     this.player.setDisplaySize(200, 140);
 
@@ -44,14 +45,19 @@ export default class Level1 extends Phaser.Scene {
     this.frameHeight = 140;
 
     // Floor slope points
-    this.floorStart = { x: 0, y: 710 };
-    this.floorEnd = { x: 1000, y: 780 };
+    this.floorStart = { x: 0, y: 560 };
+    this.floorEnd = { x: 1000, y: 630 };
 
     // Block collision rect
     this.blockRect = new Phaser.Geom.Rectangle(width * 0.17, 0, 5, 800);
 
-    // End rect
-    this.endBlockRect = new Phaser.Geom.Rectangle(width + 100, 700, 10, 200);
+    // End rect: place AFTER the door (beyond right edge) so transition happens after exiting
+    this.endBlockRect = new Phaser.Geom.Rectangle(
+      width + 150,
+      this.floorEnd.y - 200,
+      10,
+      220,
+    );
 
     // Input
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -63,48 +69,113 @@ export default class Level1 extends Phaser.Scene {
     this.font = { font: "24px Arial", fill: "#ffffff" };
 
     this.jumpImage = "foxJump";
-    this.standingImage = "foxStanding";
+    // Use frownFox as default before drinking
+    this.standingImage = "frownFox";
     this.didDrinkImage = "foxDidDrink";
+    // Reset carry-over state on scene start
+    this.didDrink = false;
+    this.playerSpeed = 7;
+
+    // Segis HUD (top-left)
+    this.segisText = this.add
+      .text(15, 15, "Segis: 0", { font: "20px Arial", color: "#ffffff" })
+      .setScrollFactor(0);
+
+    // Global debug hotkeys: 1->Intro, 2->Level1, 3->Level2
+    this.input.keyboard.on("keydown-ONE", () => this.scene.start("Intro"));
+    this.input.keyboard.on("keydown-TWO", () => this.scene.start("Level1"));
+    this.input.keyboard.on("keydown-THREE", () => this.scene.start("Level2"));
+  }
+
+  ensureCombatRegistered() {
+    const mgr = this.scene.manager;
+    if (!mgr.keys || !mgr.keys["Combat"]) {
+      this.scene.add("Combat", Combat, false);
+    }
   }
 
   handleCombat() {
-    // TODO: Replace with your Combat implementation in JS
-    const result = Math.random() > 0.5 ? "win" : "lose"; // stub
-    if (result === "win") {
-      this.didDrink = false;
-      this.player.setTexture(this.standingImage);
-      segis.add(5);
-      this.wins++;
-      console.log(`Wins: ${this.wins}`);
-    } else {
-      this.didDrink = true;
-      this.player.setTexture(this.didDrinkImage);
-      this.playerSpeed = 0;
+    if (this.inCombat) return;
+    this.inCombat = true;
+    this.ensureCombatRegistered();
 
-      // Fade to black
-      const fade = this.add
-        .rectangle(0, 0, this.scale.width, this.scale.height, 0x000000)
-        .setOrigin(0)
-        .setAlpha(0);
-      this.tweens.add({
-        targets: fade,
-        alpha: 1,
-        duration: 800,
-        onComplete: () => {
-          this.add.text(
-            this.scale.width / 4,
-            this.scale.height / 3.5,
-            "Ei bisse maistu, huomenna uus yritys.",
-            this.font,
-          );
-          this.time.delayedCall(3500, () => {
-            this.scene.start("Intro");
-          });
-        },
-      });
+    // Match original Python behavior: one quick reaction round, 3s timeout
+    const rounds = 1;
+    const promptTime = 3000;
+    const level = this;
 
-      segis.reset();
+    // Pause this scene and launch Combat overlay
+    // Remove prompt UI if visible to avoid overlaying Combat
+    if (this.promptContainer) {
+      this.promptContainer.destroy();
+      this.promptContainer = null;
     }
+    this.scene.pause();
+    this.scene.launch("Combat", {
+      promptTime,
+      rounds,
+      returnSceneKey: null,
+      onEnd(result) {
+        // Stop combat and resume Level1
+        level.scene.stop("Combat");
+        level.scene.resume();
+
+        if (result === "win") {
+          level.didDrink = false;
+          if (level.player && level.standingImage) {
+            level.player.setTexture(level.standingImage);
+          }
+          segis.add(5);
+          level.wins++;
+          level.standingImage = "foxStanding";
+        } else {
+          level.didDrink = true;
+          if (level.player && level.didDrinkImage) {
+            level.player.setTexture(level.didDrinkImage);
+          }
+          level.playerSpeed = 0;
+
+          // Fade to black and go back to Intro
+          const fade = level.add
+            .rectangle(0, 0, level.scale.width, level.scale.height, 0x000000)
+            .setOrigin(0)
+            .setAlpha(0);
+          level.tweens.add({
+            targets: fade,
+            alpha: 1,
+            duration: 800,
+            onComplete: () => {
+              // Center drunk fox on the black screen
+              const cx = level.scale.width / 2;
+              const cy = level.scale.height / 2;
+              const drunk = level.add
+                .image(cx, cy - 20, level.didDrinkImage)
+                .setOrigin(0.5)
+                .setDisplaySize(level.frameWidth, level.frameHeight);
+              level.add
+                .text(
+                  cx,
+                  cy + level.frameHeight * 0.45,
+                  "Ei bisse maistu, huomenna uus yritys.",
+                  level.font,
+                )
+                .setOrigin(0.5);
+              level.time.delayedCall(3500, () => {
+                // Reset for next day
+                level.didDrink = false;
+                level.playerSpeed = 7;
+                level.scene.start("Intro");
+              });
+            },
+          });
+          segis.reset();
+        }
+
+        level.inCombat = false;
+      },
+    });
+    // Ensure Combat scene is rendered above Level1
+    this.scene.bringToTop("Combat");
   }
 
   update(time, delta) {
@@ -125,17 +196,11 @@ export default class Level1 extends Phaser.Scene {
     );
 
     // Drink prompt trigger zone
-    const fridgeXMin = width * 0.5;
-    const fridgeXMax = width * 0.65;
-    if (
-      this.player.x >= fridgeXMin &&
-      this.player.x <= fridgeXMax &&
-      !this.didDrink
-    ) {
-      this.showDrinkPrompt = true;
-    } else {
-      this.showDrinkPrompt = false;
-    }
+    const fridgeXMin = width * 0.48;
+    const fridgeXMax = width * 0.68;
+    const canDrink = this.wins < 3 && !this.didDrink;
+    this.showDrinkPrompt =
+      this.player.x >= fridgeXMin && this.player.x <= fridgeXMax && canDrink;
 
     // Movement
     if (this.cursors.left.isDown) {
@@ -181,11 +246,12 @@ export default class Level1 extends Phaser.Scene {
       this.isJumping = false;
     }
 
-    // End trigger
+    // End trigger: go to Level2 only when touching the end block (after the door)
     if (
       Phaser.Geom.Intersects.RectangleToRectangle(playerRect, this.endBlockRect)
     ) {
       this.scene.start("Level2");
+      return;
     }
 
     // Scene switch with SPACE
@@ -194,7 +260,11 @@ export default class Level1 extends Phaser.Scene {
     }
 
     // G to drink
-    if (Phaser.Input.Keyboard.JustDown(this.keyG) && this.showDrinkPrompt) {
+    if (
+      Phaser.Input.Keyboard.JustDown(this.keyG) &&
+      this.showDrinkPrompt &&
+      this.wins < 3
+    ) {
       this.handleCombat();
       this.showDrinkPrompt = false;
     }
@@ -223,28 +293,36 @@ export default class Level1 extends Phaser.Scene {
 
     // Drink prompt UI
     if (this.showDrinkPrompt) {
-      if (!this.promptRect) {
+      if (!this.promptContainer) {
         this.promptRect = this.add
           .rectangle(525, 180, 350, 60, 0xe6e6e6)
           .setStrokeStyle(2, 0x000000)
           .setOrigin(0.5);
         this.promptText = this.add
-          .text(0, 0, "", { font: "20px Arial", fill: "#000" })
+          .text(0, 0, "", { font: "20px Arial", fill: "#0dff00ff" })
           .setOrigin(0.5);
         this.promptContainer = this.add.container(525, 180, [
           this.promptRect,
           this.promptText,
         ]);
       }
-      if (this.wins < 3) {
-        this.promptText.setText("Juo bisse. Paina G");
-      } else {
-        this.promptText.setText("Pitää hakee lisää bissee");
-        this.showDrinkPrompt = false;
-      }
+      this.promptText.setText("Juo bisse. Paina G");
     } else if (this.promptContainer) {
       this.promptContainer.destroy();
       this.promptContainer = null;
+      this.promptRect = null;
+      this.promptText = null;
+    }
+
+    // Update Segis HUD with rainbow color
+    const segVal = segis.get();
+    const rgb = getRainbowColor(this.segisColorPhase % 1);
+    const hex = `#${rgb.r.toString(16).padStart(2, "0")}${rgb.g
+      .toString(16)
+      .padStart(2, "0")}${rgb.b.toString(16).padStart(2, "0")}`;
+    if (this.segisText) {
+      this.segisText.setText(`Segis: ${segVal}`);
+      this.segisText.setColor(hex);
     }
   }
 }

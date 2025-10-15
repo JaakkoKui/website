@@ -187,6 +187,11 @@ export class Level2Scene extends Phaser.Scene {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys("W,A,S,D,SHIFT");
 
+    // Global hotkeys: 1->Intro, 2->Level1, 3->Level2
+    this.input.keyboard.on("keydown-ONE", () => this.scene.start("Intro"));
+    this.input.keyboard.on("keydown-TWO", () => this.scene.start("Level1"));
+    this.input.keyboard.on("keydown-THREE", () => this.scene.start("Level2"));
+
     // Hold-to-move toward pointer (mouse/finger)
     this.followPointer = false;
     this.input.on("pointerdown", () => {
