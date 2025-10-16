@@ -1,4 +1,7 @@
-// Module entry: only selects which scene to run
+// v2 entry point:
+// - BootScene registers handy hotkeys and starts the Intro cutscene
+// - Phaser game config wires all scenes together
+// - Phaser is loaded globally via a <script> tag in games/v2/index.html
 import Level1 from "./scenes/level1.js";
 import { Level2Scene } from "./scenes/level2.js";
 import { IntroCutscene } from "./cutscenes/intro.js";
@@ -9,7 +12,7 @@ class BootScene extends Phaser.Scene {
     super("Boot");
   }
   create() {
-    // Hotkeys for testing
+    // Hotkeys for quick scene jumping during development
     this.input.keyboard.on("keydown-ONE", () => this.scene.start("Intro"));
     this.input.keyboard.on("keydown-TWO", () => this.scene.start("Level1"));
     this.input.keyboard.on("keydown-THREE", () => this.scene.start("Level2"));

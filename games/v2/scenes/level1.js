@@ -1,3 +1,6 @@
+// Level 1: side-view room with a sloped floor and a door to Level 2.
+// - Move with arrows, jump with Up, drink at the fridge with G (limited times)
+// - Segis HUD shows a value that changes over time
 // Phaser is loaded globally via <script> in index.html
 // Import combat system and segis utilities
 import Combat from "../core/combat.js";
@@ -7,7 +10,7 @@ export default class Level1 extends Phaser.Scene {
   constructor() {
     super({ key: "Level1" });
     this.segisColorPhase = 0.0;
-    this.playerSpeed = 7;
+    this.playerSpeed = 6;
     this.gravity = 0.5;
     this.velocityY = 0;
     this.jumpStrength = -10;
@@ -17,10 +20,16 @@ export default class Level1 extends Phaser.Scene {
     this.didDrink = false;
     this.wins = 0;
     this.inCombat = false;
+
+    // Mobile controls state
+    this.touchLeft = false;
+    this.touchRight = false;
+    this.touchJumpQueued = false; // one-shot on tap
+    this.touchButtons = null; // containers map for cleanup
   }
 
   preload() {
-    // Load images
+    // Load images relative to games/v2/assets
     this.load.setPath("assets/");
     this.load.image("background", "backgrounds/level1.png");
     this.load.image("foxStanding", "fromSide/foxStanding.png");
@@ -37,23 +46,25 @@ export default class Level1 extends Phaser.Scene {
       .setOrigin(0)
       .setDisplaySize(width, height);
 
-    this.player = this.add.image(width * 0.25, 550, "frownFox");
+    // Player spawns at quarter width, front-facing frown by default (pre-drink)
+    this.player = this.add.image(width * 0.2, 520, "frownFox");
     this.player.setOrigin(0);
     this.player.setDisplaySize(200, 140);
 
+    // Base logical size; visual size is scaled during update for fake depth
     this.frameWidth = 200;
     this.frameHeight = 140;
 
-    // Floor slope points
-    this.floorStart = { x: 0, y: 560 };
-    this.floorEnd = { x: 1000, y: 630 };
+    // Floor slope points (linear interpolation used to place the feet on the floor)
+    this.floorStart = { x: 0, y: 510 };
+    this.floorEnd = { x: 1000, y: 710 };
 
-    // Block collision rect
-    this.blockRect = new Phaser.Geom.Rectangle(width * 0.17, 0, 5, 800);
+    // Thin blocker at left to prevent walking into the wall
+    this.blockRect = new Phaser.Geom.Rectangle(width * 0.13, 0, 5, 800);
 
-    // End rect: place AFTER the door (beyond right edge) so transition happens after exiting
+    // End rect: AFTER the door (beyond right edge) so transition happens after exiting
     this.endBlockRect = new Phaser.Geom.Rectangle(
-      width + 150,
+      width + 300,
       this.floorEnd.y - 200,
       10,
       220,
@@ -66,6 +77,7 @@ export default class Level1 extends Phaser.Scene {
       Phaser.Input.Keyboard.KeyCodes.SPACE,
     );
 
+    // Shared font style
     this.font = { font: "24px Arial", fill: "#ffffff" };
 
     this.jumpImage = "foxJump";
@@ -85,6 +97,13 @@ export default class Level1 extends Phaser.Scene {
     this.input.keyboard.on("keydown-ONE", () => this.scene.start("Intro"));
     this.input.keyboard.on("keydown-TWO", () => this.scene.start("Level1"));
     this.input.keyboard.on("keydown-THREE", () => this.scene.start("Level2"));
+
+    // Mobile controls
+    this.createMobileControls();
+
+    // Cleanup on shutdown/destroy
+    this.events.once("shutdown", this.cleanupControls, this);
+    this.events.once("destroy", this.cleanupControls, this);
   }
 
   ensureCombatRegistered() {
@@ -94,12 +113,35 @@ export default class Level1 extends Phaser.Scene {
     }
   }
 
+  // --- UI helpers for the fridge prompt ---
+  createPromptUI() {
+    if (this.promptContainer) return;
+    this.promptRect = this.add
+      .rectangle(525, 180, 350, 60, 0xe6e6e6)
+      .setStrokeStyle(2, 0x000000)
+      .setOrigin(0.5);
+    this.promptText = this.add
+      .text(0, 0, "", { font: "20px Arial", fill: "#0dff00ff" })
+      .setOrigin(0.5);
+    this.promptContainer = this.add.container(525, 180, [
+      this.promptRect,
+      this.promptText,
+    ]);
+  }
+  destroyPromptUI() {
+    if (!this.promptContainer) return;
+    this.promptContainer.destroy();
+    this.promptContainer = null;
+    this.promptRect = null;
+    this.promptText = null;
+  }
+
   handleCombat() {
     if (this.inCombat) return;
     this.inCombat = true;
     this.ensureCombatRegistered();
 
-    // Match original Python behavior: one quick reaction round, 3s timeout
+    // One quick reaction round, 3s timeout
     const rounds = 1;
     const promptTime = 3000;
     const level = this;
@@ -156,7 +198,7 @@ export default class Level1 extends Phaser.Scene {
                 .text(
                   cx,
                   cy + level.frameHeight * 0.45,
-                  "Ei bisse maistu, huomenna uus yritys.",
+                  "Potions too strong, better luck tomorrow",
                   level.font,
                 )
                 .setOrigin(0.5);
@@ -178,22 +220,119 @@ export default class Level1 extends Phaser.Scene {
     this.scene.bringToTop("Combat");
   }
 
+  // --- Mobile controls ----------------------------------------------------
+  createMobileControls() {
+    const { width, height } = this.scale;
+    const btnW = 84;
+    const btnH = 72;
+    const gap = 12;
+    const y = height - btnH / 2 - 16;
+
+    const makeButton = (x, label, onDown, onUp, color = 0x222222) => {
+      const cont = this.add.container(x, y).setScrollFactor(0);
+      const rect = this.add
+        .rectangle(0, 0, btnW, btnH, color)
+        .setOrigin(0.5)
+        .setStrokeStyle(2, 0xffffff)
+        .setInteractive({ useHandCursor: true });
+      const txt = this.add
+        .text(0, 0, label, { font: "22px Arial", fill: "#ffffff" })
+        .setOrigin(0.5);
+      cont.add([rect, txt]);
+      rect.on("pointerdown", () => {
+        rect.setFillStyle(0x333333);
+        onDown && onDown();
+      });
+      const up = () => {
+        rect.setFillStyle(color);
+        onUp && onUp();
+      };
+      rect.on("pointerup", up);
+      rect.on("pointerout", up);
+      rect.on("pointerupoutside", up);
+      return { cont, rect, txt };
+    };
+
+    // Left/right on bottom left
+    const leftX = 20 + btnW / 2;
+    const rightX = leftX + btnW + gap;
+    const leftBtn = makeButton(
+      leftX,
+      "◀",
+      () => (this.touchLeft = true),
+      () => (this.touchLeft = false),
+    );
+    const rightBtn = makeButton(
+      rightX,
+      "▶",
+      () => (this.touchRight = true),
+      () => (this.touchRight = false),
+    );
+
+    // Jump on bottom right
+    const jumpX = width - (20 + btnW / 2);
+    const jumpBtn = makeButton(
+      jumpX,
+      "⤴",
+      () => (this.touchJumpQueued = true),
+      null,
+      0x2e7d32,
+    );
+
+    // Optional: Drink button near jump (only active near fridge)
+    const drinkX = jumpX - (btnW + gap);
+    const drinkBtn = makeButton(
+      drinkX,
+      "G",
+      () => {
+        if (this.showDrinkPrompt && this.wins < 3 && !this.inCombat) {
+          this.handleCombat();
+        }
+      },
+      null,
+      0x6a1b9a,
+    );
+
+    this.touchButtons = { leftBtn, rightBtn, jumpBtn, drinkBtn };
+  }
+
+  cleanupControls() {
+    if (!this.touchButtons) return;
+    const all = Object.values(this.touchButtons);
+    for (const b of all) {
+      if (!b) continue;
+      if (b.rect) b.rect.disableInteractive();
+      if (b.cont) b.cont.destroy();
+    }
+    this.touchButtons = null;
+    this.touchLeft = false;
+    this.touchRight = false;
+    this.touchJumpQueued = false;
+  }
+
   update(time, delta) {
     const dt = delta;
     const width = this.scale.width;
     const height = this.scale.height;
+    const prevX = this.player.x;
 
+    // Rainbow color phase advances based on current Segis value
     const segisValue = segis.get();
     const speed = 0.000005 * segisValue;
     this.segisColorPhase += speed * dt;
     segis.update(dt);
 
-    const playerRect = new Phaser.Geom.Rectangle(
-      this.player.x,
-      this.player.y,
-      this.frameWidth,
-      this.frameHeight,
+    // Apply scaling first so collision math uses visual size
+    const minScale = 0.6;
+    const maxScale = 1.6;
+    const t = Phaser.Math.Clamp(this.player.x / Math.max(width, 1), 0, 1);
+    const scaleFactor = minScale + (maxScale - minScale) * t;
+    this.player.setDisplaySize(
+      this.frameWidth * scaleFactor,
+      this.frameHeight * scaleFactor,
     );
+
+    // We'll compute collision rectangles right before use to avoid stale values after movement
 
     // Drink prompt trigger zone
     const fridgeXMin = width * 0.48;
@@ -203,20 +342,27 @@ export default class Level1 extends Phaser.Scene {
       this.player.x >= fridgeXMin && this.player.x <= fridgeXMax && canDrink;
 
     // Movement
-    if (this.cursors.left.isDown) {
+    const leftPressed = this.cursors.left.isDown || this.touchLeft;
+    const rightPressed = this.cursors.right.isDown || this.touchRight;
+
+    if (leftPressed) {
       this.player.x -= this.playerSpeed;
       this.facingRight = false;
     }
-    if (this.cursors.right.isDown) {
+    if (rightPressed) {
       this.player.x += this.playerSpeed;
       this.facingRight = true;
     }
 
     // Jump
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.up) && !this.isJumping) {
+    const jumpRequested =
+      Phaser.Input.Keyboard.JustDown(this.cursors.up) || this.touchJumpQueued;
+    if (jumpRequested && !this.isJumping) {
       this.velocityY = this.jumpStrength;
       this.isJumping = true;
     }
+    // consume touch jump if queued
+    this.touchJumpQueued = false;
 
     this.velocityY += this.gravity;
     this.player.y += this.velocityY;
@@ -226,29 +372,59 @@ export default class Level1 extends Phaser.Scene {
     const { x: x1, y: y1 } = this.floorEnd;
     const floorY = y0 + ((y1 - y0) * (this.player.x - x0)) / (x1 - x0);
 
-    if (this.player.y + this.frameHeight >= floorY) {
-      this.player.y = floorY - this.frameHeight;
+    if (this.player.y + this.player.displayHeight >= floorY) {
+      this.player.y = floorY - this.player.displayHeight;
       this.velocityY = 0;
       this.isJumping = false;
     }
 
     // Block collision
+    const rectNowForBlock = new Phaser.Geom.Rectangle(
+      this.player.x,
+      this.player.y,
+      this.player.displayWidth,
+      this.player.displayHeight,
+    );
     if (
-      Phaser.Geom.Intersects.RectangleToRectangle(playerRect, this.blockRect)
+      Phaser.Geom.Intersects.RectangleToRectangle(
+        rectNowForBlock,
+        this.blockRect,
+      )
     ) {
-      if (this.facingRight) {
-        this.player.x = this.blockRect.x - this.frameWidth;
-      } else {
+      const dx = this.player.x - prevX;
+      if (dx > 0) {
+        // moving right: keep player to the left of the block
+        this.player.x = this.blockRect.x - this.player.displayWidth;
+      } else if (dx < 0) {
+        // moving left: keep player to the right of the block
         this.player.x = this.blockRect.x + this.blockRect.width;
+      } else {
+        // no horizontal movement: resolve by proximity to closest side
+        const playerCenter = this.player.x + this.player.displayWidth / 2;
+        const wallCenter = this.blockRect.x + this.blockRect.width / 2;
+        if (playerCenter < wallCenter) {
+          this.player.x = this.blockRect.x - this.player.displayWidth;
+        } else {
+          this.player.x = this.blockRect.x + this.blockRect.width;
+        }
       }
-      this.player.y = floorY - this.frameHeight;
+      this.player.y = floorY - this.player.displayHeight;
       this.velocityY = 0;
       this.isJumping = false;
     }
 
     // End trigger: go to Level2 only when touching the end block (after the door)
+    const rectNowForEnd = new Phaser.Geom.Rectangle(
+      this.player.x,
+      this.player.y,
+      this.player.displayWidth,
+      this.player.displayHeight,
+    );
     if (
-      Phaser.Geom.Intersects.RectangleToRectangle(playerRect, this.endBlockRect)
+      Phaser.Geom.Intersects.RectangleToRectangle(
+        rectNowForEnd,
+        this.endBlockRect,
+      )
     ) {
       this.scene.start("Level2");
       return;
@@ -269,7 +445,7 @@ export default class Level1 extends Phaser.Scene {
       this.showDrinkPrompt = false;
     }
 
-    // Player image switching
+    // Player image switching (drunk > jump > standing)
     if (this.didDrink) {
       this.player.setTexture(this.didDrinkImage);
       this.playerSpeed = 3;
@@ -281,37 +457,14 @@ export default class Level1 extends Phaser.Scene {
       this.player.flipX = !this.facingRight;
     }
 
-    // Scale player based on x position
-    const minScale = 0.6;
-    const maxScale = 1.6;
-    const scaleFactor =
-      minScale + (maxScale - minScale) * (this.player.x / Math.max(width, 1));
-    this.player.setDisplaySize(
-      this.frameWidth * scaleFactor,
-      this.frameHeight * scaleFactor,
-    );
+    // Scaling already applied above
 
     // Drink prompt UI
     if (this.showDrinkPrompt) {
-      if (!this.promptContainer) {
-        this.promptRect = this.add
-          .rectangle(525, 180, 350, 60, 0xe6e6e6)
-          .setStrokeStyle(2, 0x000000)
-          .setOrigin(0.5);
-        this.promptText = this.add
-          .text(0, 0, "", { font: "20px Arial", fill: "#0dff00ff" })
-          .setOrigin(0.5);
-        this.promptContainer = this.add.container(525, 180, [
-          this.promptRect,
-          this.promptText,
-        ]);
-      }
+      this.createPromptUI();
       this.promptText.setText("Juo bisse. Paina G");
-    } else if (this.promptContainer) {
-      this.promptContainer.destroy();
-      this.promptContainer = null;
-      this.promptRect = null;
-      this.promptText = null;
+    } else {
+      this.destroyPromptUI();
     }
 
     // Update Segis HUD with rainbow color

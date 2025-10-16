@@ -3,7 +3,7 @@ export class StoryTeller {
     scene,
     text,
     {
-      fontSize = 36,
+      fontSize = 30,
       letterDelay = 30,
       pauseDelay = 30,
       fadeDelay = 1000,
@@ -160,5 +160,21 @@ export class StoryTeller {
     this.state = "letter";
     this.fadeTimer = 0;
     this.alpha = 1;
+  }
+
+  // Returns true once the text has fully faded away
+  isFinished() {
+    return this.state === "fade" && this.alpha <= 0;
+  }
+
+  // Destroys all display objects created by this storyteller
+  destroy() {
+    if (this.container) {
+      this.container.destroy(true);
+      this.container = null;
+    }
+    this.boxGraphics = null;
+    this.shadowGraphics = null;
+    this.textObj = null;
   }
 }

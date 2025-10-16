@@ -1,3 +1,8 @@
+// Combat: a tiny reaction mini-game shown as an overlay.
+// - Shows a random key from [A,S,D,F,G]
+// - Gives the player `promptTime` ms to press ONLY that key
+// - Uses a small input grace at start to avoid accidental key carryover
+// - Uses delta-based timing to avoid random timeouts on tab throttling
 export default class Combat extends Phaser.Scene {
   constructor() {
     super({ key: "Combat" });
@@ -10,7 +15,6 @@ export default class Combat extends Phaser.Scene {
     // State
     this.active = false;
     this.currentKey = null;
-    this.promptStart = 0; // retained for reference
     this.promptElapsed = 0; // ms accumulated per prompt
     this.graceRemaining = 0; // ms before accepting input
     this.currentRound = 0;
@@ -18,10 +22,14 @@ export default class Combat extends Phaser.Scene {
     this.failed = false;
     this.onEnd = null;
     this.returnSceneKey = null;
+    this.lastFailReason = null; // 'wrong' | 'timeout' | null
+    // Touch/UI
+    this.buttonRow = null;
+    this.buttonMap = new Map(); // key -> {container, rect, label}
   }
 
   init(data) {
-    // Called when starting the scene with this.scene.start('Combat', data)
+    // Called when launching the scene. Allows config overrides from callers.
     this.promptTime = data.promptTime ?? this.promptTime;
     this.rounds = data.rounds ?? this.rounds;
     this.onEnd = data.onEnd ?? null;
@@ -37,7 +45,7 @@ export default class Combat extends Phaser.Scene {
     const K = Phaser.Input.Keyboard.KeyCodes;
     this.input.keyboard.addCapture([K.A, K.S, K.D, K.F, K.G]);
 
-    // Dim background to indicate a modal mini-game
+    // Dim background to indicate a modal mini-game (keeps gameplay paused underneath)
     this.backdrop = this.add
       .rectangle(width / 2, height / 2, width, height, 0x000000)
       .setAlpha(0.4)
@@ -67,13 +75,17 @@ export default class Combat extends Phaser.Scene {
       .setOrigin(0.5)
       .setAlpha(0);
 
-    // Use addKeys for reliable key creation
+    // Create key objects for prompt keys
     this.keyObjects = this.input.keyboard.addKeys(this.promptKeys.join(","));
+
+    // On-screen mobile buttons (keep even on desktop; harmless)
+    this.createTouchButtons();
 
     this.startCombat();
   }
 
   startCombat() {
+    // Reset state for a new combat sequence
     this.active = true;
     this.result = null;
     this.failed = false;
@@ -87,12 +99,14 @@ export default class Combat extends Phaser.Scene {
   nextPrompt() {
     const randomIndex = Phaser.Math.Between(0, this.promptKeys.length - 1);
     this.currentKey = this.promptKeys[randomIndex];
-    this.promptStart = this.time.now;
     this.promptElapsed = 0;
 
     this.promptText.setText(
       `Press ${this.currentKey}  (${this.currentRound + 1}/${this.rounds})`,
     );
+
+    // Highlight expected key on buttons
+    this.updateButtonHighlights();
   }
 
   update(time, delta) {
@@ -104,17 +118,24 @@ export default class Combat extends Phaser.Scene {
     if (this.graceRemaining > 0)
       this.graceRemaining = Math.max(0, this.graceRemaining - step);
 
-    // Timeout only when elapsed exceeds promptTime (robust to throttling)
+    // Timeout when elapsed exceeds promptTime (robust to throttling)
     if (this.promptElapsed > this.promptTime) {
-      this.failRound();
+      this.failRound("timeout");
       return;
     }
 
-    // Accept only the expected key after grace; ignore wrong keys to reduce false losses
+    // After grace: pressing the expected key wins the round; any other prompt key loses
     if (this.graceRemaining === 0) {
-      const expectedKeyObj = this.keyObjects[this.currentKey];
-      if (expectedKeyObj && Phaser.Input.Keyboard.JustDown(expectedKeyObj)) {
-        this.handleCorrectKey();
+      for (const keyName of this.promptKeys) {
+        const keyObj = this.keyObjects[keyName];
+        if (keyObj && Phaser.Input.Keyboard.JustDown(keyObj)) {
+          if (keyName === this.currentKey) {
+            this.handleCorrectKey();
+          } else {
+            this.failRound("wrong");
+          }
+          break;
+        }
       }
     }
   }
@@ -128,8 +149,9 @@ export default class Combat extends Phaser.Scene {
     }
   }
 
-  failRound() {
+  failRound(reason = "wrong") {
     this.failed = true;
+    this.lastFailReason = reason;
     this.endCombat("lose");
   }
 
@@ -139,7 +161,11 @@ export default class Combat extends Phaser.Scene {
 
     // Show brief result feedback
     if (this.resultText) {
-      this.resultText.setText(result === "win" ? "WIN!" : "LOSE");
+      let msg = "WIN!";
+      if (result !== "win") {
+        msg = this.lastFailReason === "timeout" ? "Too slow" : "Wrong rune";
+      }
+      this.resultText.setText(msg);
       this.resultText.setAlpha(1);
       this.tweens.add({
         targets: this.resultText,
@@ -155,5 +181,62 @@ export default class Combat extends Phaser.Scene {
     };
     // Brief delay to let player see outcome
     this.time.delayedCall(this.resultDisplayDuration, finish);
+  }
+
+  // --- Mobile buttons -----------------------------------------------------
+  createTouchButtons() {
+    const { width, height } = this.scale;
+    const buttonWidth = 80;
+    const buttonHeight = 64;
+    const gap = 12;
+    const totalWidth =
+      this.promptKeys.length * buttonWidth + (this.promptKeys.length - 1) * gap;
+    const startX = (width - totalWidth) / 2 + buttonWidth / 2;
+    const y = 430;
+
+    for (let i = 0; i < this.promptKeys.length; i++) {
+      const key = this.promptKeys[i];
+      const x = startX + i * (buttonWidth + gap);
+      const cont = this.add.container(x, y);
+      const rect = this.add
+        .rectangle(0, 0, buttonWidth, buttonHeight, 0x212121)
+        .setStrokeStyle(2, 0xffffff)
+        .setOrigin(0.5)
+        .setInteractive({ useHandCursor: true });
+      const label = this.add
+        .text(0, 0, key, { font: "28px Arial", fill: "#ffffff" })
+        .setOrigin(0.5);
+      cont.add([rect, label]);
+
+      rect.on("pointerdown", () => {
+        if (!this.active) return;
+        if (this.graceRemaining > 0) return; // still in grace
+        this.handleTouchKey(key);
+      });
+
+      this.buttonMap.set(key, { container: cont, rect, label });
+    }
+    this.buttonRow = true;
+    this.updateButtonHighlights();
+  }
+
+  updateButtonHighlights() {
+    if (!this.buttonRow) return;
+    for (const key of this.promptKeys) {
+      const btn = this.buttonMap.get(key);
+      if (!btn) continue;
+      const isTarget = key === this.currentKey;
+      btn.rect.setFillStyle(isTarget ? 0x37474f : 0x212121, 1);
+      btn.rect.setStrokeStyle(2, isTarget ? 0x00e676 : 0xffffff, 1);
+      btn.label.setColor(isTarget ? "#a5ffb5" : "#ffffff");
+    }
+  }
+
+  handleTouchKey(keyName) {
+    if (keyName === this.currentKey) {
+      this.handleCorrectKey();
+    } else if (this.promptKeys.includes(keyName)) {
+      this.failRound("wrong");
+    }
   }
 }
