@@ -78,8 +78,17 @@ export default class Combat extends Phaser.Scene {
     // Create key objects for prompt keys
     this.keyObjects = this.input.keyboard.addKeys(this.promptKeys.join(","));
 
-    // On-screen mobile buttons (keep even on desktop; harmless)
-    this.createTouchButtons();
+    // On-screen mobile buttons (phones only)
+    const os =
+      (this.sys &&
+        this.sys.game &&
+        this.sys.game.device &&
+        this.sys.game.device.os) ||
+      {};
+    const isPhone = !!(os.android || os.iOS);
+    if (isPhone) {
+      this.createTouchButtons();
+    }
 
     this.startCombat();
   }
@@ -226,9 +235,10 @@ export default class Combat extends Phaser.Scene {
       const btn = this.buttonMap.get(key);
       if (!btn) continue;
       const isTarget = key === this.currentKey;
-      btn.rect.setFillStyle(isTarget ? 0x37474f : 0x212121, 1);
-      btn.rect.setStrokeStyle(2, isTarget ? 0x00e676 : 0xffffff, 1);
-      btn.label.setColor(isTarget ? "#a5ffb5" : "#ffffff");
+      // Neutral highlight: darker fill only, no green stroke or label color
+      btn.rect.setFillStyle(isTarget ? 0x2a2a2a : 0x212121, 1);
+      btn.rect.setStrokeStyle(2, 0xffffff, 1);
+      btn.label.setColor("#ffffff");
     }
   }
 
