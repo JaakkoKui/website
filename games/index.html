@@ -12,60 +12,39 @@
         --card-b: #27313d;
         --accent: #ff7b29;
       }
+      html, body { height: 100%; }
       body {
-        padding: 2rem;
+        margin: 0;
         color: #e6edf3;
         background: #0d1117;
         font-family: system-ui, sans-serif;
+        overflow: hidden; /* prevent page scroll */
       }
       .wrap {
-        max-width: 1100px;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 1rem;
         margin: 0 auto;
+        max-width: 1100px;
       }
       .breadcrumb {
         font-size: 0.85rem;
-        margin-bottom: 0.5rem;
+        margin: 0;
       }
       .breadcrumb a {
         color: #9acaff;
         text-decoration: none;
       }
       h1 {
-        margin: 0 0 0.25rem;
+        margin: 0;
         font-size: 1.6rem;
       }
-      .lead {
-        margin: 0.25rem 0 0.75rem;
-      }
-      .game-list {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
-        margin: 0.5rem 0 0.75rem;
-        padding: 0;
-        list-style: none;
-      }
-      .game-list a {
-        display: inline-block;
-        padding: 0.55rem 0.8rem;
-        background: var(--card);
-        border: 1px solid var(--card-b);
-        border-radius: 8px;
-        color: inherit;
-        text-decoration: none;
-      }
-      .game-list a.active {
-        border-color: var(--accent);
-        background: #161b22;
-      }
-
-      /* New: list + fullscreen on one row */
       .controls {
         display: flex;
         align-items: center;
-        flex-wrap: wrap;
         gap: 0.5rem;
-        margin: 0.25rem 0 0.5rem;
       }
       .controls .fs-btn {
         margin-left: auto;
@@ -76,22 +55,18 @@
         border-radius: 8px;
         cursor: pointer;
       }
-      .controls .fs-btn:hover {
-        border-color: var(--accent);
-      }
-
+      .controls .fs-btn:hover { border-color: var(--accent); }
       .game-frame {
+        flex: 1 1 auto;
+        min-height: 0; /* allow flex item to shrink */
         width: 100%;
-        height: 70vh;
-        min-height: 520px;
         background: #111;
         border: 1px solid var(--card-b);
         border-radius: var(--radius);
         display: block;
-        margin-bottom: 8px; /* tiny bottom margin */
       }
       #game-error {
-        margin: 0.5rem 0;
+        margin: 0.25rem 0 0;
         color: #f88;
         font-weight: 600;
         display: none;
@@ -101,20 +76,10 @@
   <body>
     <div class="wrap">
       <p class="breadcrumb"><a href="../index.html">← Etusivulle</a></p>
-      <h1>Pelit</h1>
-      <p class="lead">
-        Valitse peli listasta. Peli avautuu alla olevaan ikkunaan.
-      </p>
-
-      <!-- Replace the separate list + toolbar with a single controls row -->
+      <h1>The Game</h1>
       <div class="controls">
-        <ul class="game-list" id="game-list">
-          <li><a href="?g=web" data-game="web">Ketunkolo (web)</a></li>
-          <li><a href="?g=v2" data-game="v2">Ketunkolo v2</a></li>
-        </ul>
         <button id="fs-btn" type="button" class="fs-btn">Fullscreen</button>
       </div>
-
       <iframe
         id="game-frame"
         title="Game"
@@ -128,61 +93,24 @@
       <script>
         (function () {
           const frame = document.getElementById("game-frame");
-          const links = document.querySelectorAll("#game-list a[data-game]");
           const err = document.getElementById("game-error");
           const fsBtn = document.getElementById("fs-btn");
 
-          // Prefer inside /games/, fall back to project root ../v2 if needed
-          const map = {
-            web: ["web/index.html"],
-            v2: ["v2/index.html", "../v2/index.html"],
-          };
-
-          const params = new URLSearchParams(location.search);
-          const current = params.get("g") || "web";
-
-          async function exists(url) {
-            try {
-              const r = await fetch(url, { method: "HEAD", cache: "no-store" });
-              return r.ok;
-            } catch {
-              return false;
+          // Resolve preferred source: try Phaser v2 first, then pygbag web.
+          (async function chooseSource() {
+            const tryList = ["v2/index.html", "web/index.html"];
+            for (const url of tryList) {
+              try {
+                const r = await fetch(url, { method: "HEAD", cache: "no-store" });
+                if (r.ok) {
+                  frame.src = url;
+                  return;
+                }
+              } catch {}
             }
-          }
-
-          async function resolveSrc(key) {
-            const candidates = map[key] || map.web;
-            for (const url of candidates) if (await exists(url)) return url;
-            return null;
-          }
-
-          async function setGame(key) {
-            err.style.display = "none";
-            const src = await resolveSrc(key);
-            if (src) {
-              frame.src = src;
-            } else {
-              frame.removeAttribute("src");
-              err.textContent = `Game "${key}" not found. Checked: ${(
-                map[key] || []
-              ).join(", ")}`;
-              err.style.display = "block";
-            }
-            links.forEach((a) =>
-              a.classList.toggle("active", a.dataset.game === key)
-            );
-          }
-
-          setGame(current);
-
-          links.forEach((a) =>
-            a.addEventListener("click", (e) => {
-              e.preventDefault();
-              const key = a.dataset.game;
-              history.replaceState(null, "", "?g=" + encodeURIComponent(key));
-              setGame(key);
-            })
-          );
+            err.textContent = "No game entry found (v2/index.html or web/index.html).";
+            err.style.display = "block";
+          })();
 
           // Fullscreen toggle
           function isFs() {

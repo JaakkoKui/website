@@ -247,16 +247,16 @@
       // this dict is available under PyConfig.config from __main__
 
       config = {
-        xtermjs: "1",
+        xtermjs: "0",
         _sdl2: "canvas",
         user_canvas: 0,
         user_canvas_managed: 0,
-        ume_block: 1,
+        ume_block: 0,
         can_close: 0,
         archive: "ketunkolo",
-        gui_debug: 3,
+        gui_debug: 0,
         cdn: "https://pygame-web.github.io/archives/0.9/",
-        autorun: 0,
+        autorun: 1,
         PYBUILD: "3.12",
       };
     </script>
@@ -338,10 +338,10 @@
       }
 
       body {
-        font-family: arial;
+        font-family: arial, system-ui, sans-serif;
         margin: 0;
-        padding: none;
-        background-color: powderblue;
+        background-color: #0d1117;
+        color: #e6edf3;
       }
 
       .topright {
@@ -376,7 +376,7 @@
       }
     </style>
 
-    <script src="https://pygame-web.github.io/archives/0.9//browserfs.min.js"></script>
+  <script src="https://pygame-web.github.io/archives/0.9/browserfs.min.js"></script>
   </head>
 
   <body>
