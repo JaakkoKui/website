@@ -14,8 +14,8 @@ const LEVEL1_CFG = {
   endBlock: { offsetX: 300, width: 10, height: 220 },
   scale: { min: 0.6, max: 1.6 },
   fridgeZone: { minFrac: 0.48, maxFrac: 0.68 },
-  physics: { gravity: 0.5, jumpStrength: -10 },
-  speed: { base: 7, drunk: 3 },
+  physics: { gravity: 0.2, jumpStrength: -8 },
+  speed: { base: 2, drunk: 1 },
   hud: { font: { font: "20px Arial", color: "#ffffff" } },
   segisColorSpeedMul: 0.000005,
 };
@@ -107,7 +107,7 @@ export default class Level1 extends Phaser.Scene {
     this.didDrinkImage = "foxDidDrink";
     // Reset carry-over state on scene start
     this.didDrink = false;
-    this.playerSpeed = 7;
+    this.playerSpeed = LEVEL1_CFG.speed.base;
 
     // Segis HUD (top-left)
     this.segisText = this.add
@@ -500,7 +500,7 @@ export default class Level1 extends Phaser.Scene {
     // Player image switching (drunk > jump > standing)
     if (this.didDrink) {
       this.player.setTexture(this.didDrinkImage);
-      this.playerSpeed = 3;
+      this.playerSpeed = 0;
     } else if (this.isJumping) {
       this.player.setTexture(this.jumpImage);
       this.player.flipX = !this.facingRight;

@@ -4,7 +4,9 @@ export class Level3 extends Phaser.Scene {
   preload() {
     this.load.setPath('assets/');
     this.load.image('lvl3bg', 'backgrounds/level3_bg.png');
-    this.load.image('car', 'car/car1.png');
+      // Use a unique key to avoid clashes with Level2's 'car' texture
+      this.load.image('car_lvl3', 'car/car1.png');
+      this.load.on('loaderror', (f) => console.warn('[Level3 loaderror]', f?.key || f));
   }
 
   create() {
@@ -25,7 +27,14 @@ export class Level3 extends Phaser.Scene {
     // Player
     const startX = this.worldW * 0.5;
     const startY = this.worldH * 0.6;
-  this.player = this.physics.add.sprite(startX, startY, 'car').setScale(0.06);
+    this.player = this.physics.add.sprite(startX, startY, 'car_lvl3');
+    // Normalize visual size to a consistent, readable width
+    const targetW = 56; // px on screen; tweak as needed
+    const baseW = this.player.width || 100;
+    const scale = targetW / baseW;
+    this.player.setScale(scale).setOrigin(0.5, 0.5);
+    // Align physics body to displayed sprite for accurate bounds
+    this.player.body.setSize(this.player.displayWidth, this.player.displayHeight, true);
     this.player.setCollideWorldBounds(true);
 
     // Input
@@ -77,7 +86,7 @@ export class Level3 extends Phaser.Scene {
     this.player.setVelocity(vx, vy);
 
     // Rotate car to face movement direction (assumes sprite graphic points UP by default)
-    const ORIENTATION_OFFSET = Math.PI / 2; // adjust if your art faces a different base direction
+  const ORIENTATION_OFFSET = Math.PI / 2; // adjust if your art faces a different base direction
     const moving = Math.abs(vx) + Math.abs(vy) > 1;
     if (moving) {
       const ang = Math.atan2(vy, vx);
