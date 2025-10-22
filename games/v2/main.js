@@ -1,18 +1,25 @@
-// v2 entry point:
-// - BootScene registers handy hotkeys and starts the Intro cutscene
-// - Phaser game config wires all scenes together
-// - Phaser is loaded globally via a <script> tag in games/v2/index.html
 import Level1 from "./scenes/level1.js";
 import { Level2 } from "./scenes/level2.js";
 import { IntroCutscene } from "./cutscenes/intro.js";
 import Combat from "./core/combat.js";
 import { Level3 } from "./scenes/level3.js";
 
+const SCENE_KEYS = ["Intro", "Level1", "Level2", "Level3"];
+const HOTKEYS = {
+  Digit1: "Intro",
+  Numpad1: "Intro",
+  Digit2: "Level1",
+  Numpad2: "Level1",
+  Digit3: "Level2",
+  Numpad3: "Level2",
+  Digit4: "Level3",
+  Numpad4: "Level3",
+};
+
 // Lightweight HUD with tappable scene buttons (helps on mobile)
 class HUDScene extends Phaser.Scene {
   constructor() { super("HUD"); }
   create() {
-    // Ensure HUD is on top of other scenes
     this.scene.bringToTop();
 
     const w = this.scale.width;
@@ -21,24 +28,20 @@ class HUDScene extends Phaser.Scene {
     const btnW = 60;
     const btnH = 34;
     const gap = 8;
-    const labels = [
-      { key: 'Intro', text: 'Intro' },
-      { key: 'Level1', text: 'L1' },
-      { key: 'Level2', text: 'L2' },
-      { key: 'Level3', text: 'L3' },
-    ];
+    const labels = SCENE_KEYS.map((key) => ({
+      key,
+      text: key === "Intro" ? "Intro" : key.replace("Level", "L"),
+    }));
 
     const totalW = labels.length * btnW + (labels.length - 1) * gap + pad * 2;
     const x0 = (w - totalW) / 2 + pad;
     const y0 = h - btnH - 10;
 
-    // Background bar
     const bar = this.add.rectangle(w / 2, y0 + btnH / 2, totalW, btnH + pad * 2, 0x000000, 0.35)
       .setScrollFactor(0)
       .setDepth(9999)
       .setInteractive();
 
-    // Buttons
     labels.forEach((item, i) => {
       const bx = x0 + i * (btnW + gap) + btnW / 2;
       const by = y0 + btnH / 2;
@@ -54,15 +57,12 @@ class HUDScene extends Phaser.Scene {
         .setDepth(10001)
         .setInteractive({ useHandCursor: true });
 
-      const go = () => {
-        try { startScene(item.key); } catch (e) { /* noop */ }
-      };
+      const go = () => startScene(item.key);
       r.on('pointerup', go);
       t.on('pointerup', go);
     });
 
-    // Reposition HUD on resize
-    this.scale.on('resize', (sz) => this.scene.restart());
+    this.scale.on('resize', () => this.scene.restart());
   }
 }
 
@@ -71,7 +71,6 @@ class BootScene extends Phaser.Scene {
     super("Boot");
   }
   create() {
-    // Launch HUD (mobile-friendly scene switcher), then start with cutscene
     this.scene.launch("HUD");
     this.scene.start("Intro");
   }
@@ -90,48 +89,24 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-// Global scene hotkeys (work in every scene)
-// 1 -> Intro, 2 -> Level1, 3 -> Level2, 4 -> Level3
 function startScene(key) {
-  try {
-    if (game && game.scene && game.scene.keys && game.scene.keys[key]) {
-      game.scene.start(key);
-    }
-  } catch (e) {
-    // noop
-  }
+  if (!SCENE_KEYS.includes(key)) return;
+  const manager = game.scene;
+  if (!manager?.keys?.[key]) return;
+  manager.start(key);
 }
 
 function handleHotkeys(e) {
-  // Ignore when typing in inputs or with modifiers pressed
   const tag = document.activeElement && document.activeElement.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
   if (e.altKey || e.ctrlKey || e.metaKey) return;
-
-  switch (e.code) {
-    case 'Digit1':
-    case 'Numpad1':
-      e.preventDefault();
-      startScene('Intro');
-      break;
-    case 'Digit2':
-    case 'Numpad2':
-      e.preventDefault();
-      startScene('Level1');
-      break;
-    case 'Digit3':
-    case 'Numpad3':
-      e.preventDefault();
-      startScene('Level2');
-      break;
-    case 'Digit4':
-    case 'Numpad4':
-      e.preventDefault();
-      startScene('Level3');
-      break;
-    default:
-      break;
-  }
+  const key = HOTKEYS[e.code];
+  if (!key) return;
+  e.preventDefault();
+  startScene(key);
 }
 
 window.addEventListener('keydown', handleHotkeys);
+window.addEventListener('beforeunload', () => {
+  window.removeEventListener('keydown', handleHotkeys);
+});

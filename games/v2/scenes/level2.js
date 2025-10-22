@@ -7,11 +7,8 @@ export class Level2 extends Phaser.Scene {
     this.load.setPath("assets/");
     this.load.image("fa_bg2", "backgrounds/level2_bg.png");
     this.load.image("fa_mask2", "backgrounds/level2_mask.png");
-    this.load.image("car", "car/car_yard.png");
-    // Single fox sprite used for all directions
     this.load.image("fox", "player.png");
-    // Car sprite for upper level interaction
-    this.load.image("car", "car/car1.png");
+    this.load.image("car", "car/car_yard.png");
     this.load.on("loaderror", (f) => console.warn("[loaderror]", f?.key || f));
   }
 
@@ -65,9 +62,9 @@ export class Level2 extends Phaser.Scene {
     // Mask texture sizes
     let maskW = srcW;
     let maskH = srcH;
-  const mSrc = this.textures.get(maskKey).getSourceImage();
-  maskW = mSrc.naturalWidth || mSrc.width;
-  maskH = mSrc.naturalHeight || mSrc.height;
+    const mSrc = this.textures.get(maskKey).getSourceImage();
+    maskW = mSrc.naturalWidth || mSrc.width;
+    maskH = mSrc.naturalHeight || mSrc.height;
 
     // World size AFTER zoom (camera/physics bounds must use this)
     this.worldW = srcW * BG_ZOOM;
@@ -110,7 +107,7 @@ export class Level2 extends Phaser.Scene {
       this.isWalkable(x, y + clearance);
 
     const startKey = "fox";
-  this.player = this.physics.add.sprite(1000, 1100, startKey).setScale(0.2);
+    this.player = this.physics.add.sprite(1000, 1100, startKey).setScale(0.2);
     this.player.body.setSize(this.player.width, this.player.height, true);
     this.player.setCollideWorldBounds(true);
     if (this.worldMask) this.player.setMask(this.worldMask);
@@ -121,32 +118,28 @@ export class Level2 extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
 
     // Input
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys("W,A,S,D,SHIFT");
+  this.cursors = this.input.keyboard.createCursorKeys();
+  this.keys = this.input.keyboard.addKeys("W,A,S,D,SHIFT,E");
     // Allow pointer events to pass through non-interactive children
     this.input.topOnly = false;
-
-    // Global hotkeys: 1->Intro, 2->Level1, 3->Level2
-    this.input.keyboard.on("keydown-ONE", () => this.scene.start("Intro"));
-    this.input.keyboard.on("keydown-TWO", () => this.scene.start("Level1"));
-    this.input.keyboard.on("keydown-THREE", () => this.scene.start("Level2"));
 
     // Hold-to-move toward pointer (mouse/finger)
     this.followPointer = false;
 
     // --- Car placement (upper middle) and interaction zone ---
     const carX = this.worldW * 0.53;
-    const carY = this.worldH * 0.13; // near top quarter
+    const carY = this.worldH * 0.13;
     this.car = this.add.image(carX, carY, "car").setOrigin(0.5).setScale(0.4).setDepth(-5);
-    // Create a visible trigger box around the car
-    const zoneW = (this.car.displayWidth );
-    const zoneH = (this.car.displayHeight );
+    const zoneW = this.car.displayWidth;
+    const zoneH = this.car.displayHeight;
     this.carZoneRect = new Phaser.Geom.Rectangle(carX - zoneW / 2, carY - zoneH / 2, zoneW, zoneH);
     this.carZoneBox = this.add
       .rectangle(carX, carY, zoneW, zoneH)
+      .setFillStyle(0x000000, 0)
+      .setStrokeStyle(1, 0xffffff, 0)
     // Prompt appears only when player is in the zone
     this.carPrompt = this.add
-      .text(carX + 17, carY - zoneH * 0.4, "Press E to enter", {
+  .text(carX + 17, carY - zoneH * 0.4, "Press E to enter", {
         fontFamily: "Arial, sans-serif",
         fontSize: "18px",
         color: "#e6edf3",
@@ -157,20 +150,24 @@ export class Level2 extends Phaser.Scene {
       .setDepth(10)
       .setVisible(false);
     this.targetPos = new Phaser.Math.Vector2();
-    this.input.on("pointerdown", (p) => {
+    this.handlePointerDown = (p) => {
       this.followPointer = true;
       this.targetPos.set(p.worldX, p.worldY);
-    });
-    this.input.on("pointerup", () => {
+    };
+    this.handlePointerUp = () => {
       this.followPointer = false;
-    });
-    this.keys = this.input.keyboard.addKeys("W,A,S,D,SHIFT,E");
-    this.input.on("pointermove", (p) => {
-      if (p.isDown) {
-        this.followPointer = true;
-        this.targetPos.set(p.worldX, p.worldY);
-      }
-    });
+    };
+    this.handlePointerMove = (p) => {
+      if (!p.isDown) return;
+      this.followPointer = true;
+      this.targetPos.set(p.worldX, p.worldY);
+    };
+    this.input.on("pointerdown", this.handlePointerDown);
+    this.input.on("pointerup", this.handlePointerUp);
+    this.input.on("pointermove", this.handlePointerMove);
+
+    this.events.once("shutdown", this.cleanupScene, this);
+    this.events.once("destroy", this.cleanupScene, this);
   }
 
   snapToNearestWalkable(sprite, maxR = 600) {
@@ -296,5 +293,20 @@ export class Level2 extends Phaser.Scene {
         this.scene.start("Level3");
       }
     }
+  }
+
+  cleanupScene() {
+    this.events.off("shutdown", this.cleanupScene, this);
+    this.events.off("destroy", this.cleanupScene, this);
+    if (this.input) {
+      this.input.off("pointerdown", this.handlePointerDown);
+      this.input.off("pointerup", this.handlePointerUp);
+      this.input.off("pointermove", this.handlePointerMove);
+    }
+    this.handlePointerDown = null;
+    this.handlePointerUp = null;
+    this.handlePointerMove = null;
+    this.carPrompt?.destroy();
+    this.carZoneBox?.destroy();
   }
 }

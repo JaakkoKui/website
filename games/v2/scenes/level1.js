@@ -1,8 +1,5 @@
 // Level 1: side-view room with a sloped floor and a door to Level 2.
-// - Move with arrows (or touch on phones), jump with Up/touch, drink with G near the fridge
-// - Segis HUD animates with a rainbow color based on current Segis value
-// Phaser is loaded globally via <script> in index.html
-// Import combat system and segis utilities
+// Move with arrows (or touch on phones), jump with Up/touch, drink with G near the fridge.
 import Combat from "../core/combat.js";
 import { segis, getRainbowColor } from "../core/segis.js";
 
@@ -65,8 +62,7 @@ export default class Level1 extends Phaser.Scene {
     this.player.setOrigin(0);
     this.player.setDisplaySize(LEVEL1_CFG.frame.width, LEVEL1_CFG.frame.height);
 
-    // Base logical size; visual size is scaled during update for fake depth
-    // Base logical size; visual size is scaled during update for fake depth
+  // Base logical size; visual size is scaled during update for fake depth
     this.frameWidth = LEVEL1_CFG.frame.width;
     this.frameHeight = LEVEL1_CFG.frame.height;
 
@@ -74,8 +70,7 @@ export default class Level1 extends Phaser.Scene {
     this.floorStart = { ...LEVEL1_CFG.floor.start };
     this.floorEnd = { ...LEVEL1_CFG.floor.end };
 
-    // Thin blocker at left to prevent walking into the wall
-    // Thin blocker at left to prevent walking into the wall
+  // Thin blocker at left to prevent walking into the wall
     this.blockRect = new Phaser.Geom.Rectangle(
       width * LEVEL1_CFG.block.xFrac,
       0,
@@ -113,15 +108,6 @@ export default class Level1 extends Phaser.Scene {
     this.segisText = this.add
       .text(15, 15, "Segis: 0", LEVEL1_CFG.hud.font)
       .setScrollFactor(0);
-
-    // Global debug hotkeys: 1->Intro, 2->Level1, 3->Level2
-    const goIntro = () => this.scene.start("Intro");
-    const goL1 = () => this.scene.start("Level1");
-    const goL2 = () => this.scene.start("Level2");
-    this._hotkeys = { goIntro, goL1, goL2 };
-    this.input.keyboard.on("keydown-ONE", goIntro, this);
-    this.input.keyboard.on("keydown-TWO", goL1, this);
-    this.input.keyboard.on("keydown-THREE", goL2, this);
 
     // Mobile controls: show only on phones; enable multi-touch
     const os =
@@ -531,16 +517,9 @@ export default class Level1 extends Phaser.Scene {
     }
   }
 
-  // Unified cleanup: mobile controls, prompt UI, and hotkeys
+  // Unified cleanup: mobile controls and prompt UI
   cleanupScene() {
     this.cleanupControls && this.cleanupControls();
     this.destroyPromptUI && this.destroyPromptUI();
-    if (this._hotkeys) {
-      const { goIntro, goL1, goL2 } = this._hotkeys;
-      this.input.keyboard.off("keydown-ONE", goIntro, this);
-      this.input.keyboard.off("keydown-TWO", goL1, this);
-      this.input.keyboard.off("keydown-THREE", goL2, this);
-      this._hotkeys = null;
-    }
   }
 }

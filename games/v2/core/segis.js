@@ -1,4 +1,5 @@
-// === Rainbow color utility ===
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
 export function getRainbowColor(phase) {
   // phase is between [0, 1)
   const h = phase * 360; // convert to degrees for clarity
@@ -31,18 +32,17 @@ export function getRainbowColor(phase) {
   return { r, g, b };
 }
 
-// === Segis class ===
 export class Segis {
   constructor(initial = 0) {
-    this.value = Math.min(100, Math.max(0, initial));
+    this.value = clamp(initial, 0, 100);
   }
 
   add(amount) {
-    this.value = Math.min(100, this.value + amount);
+    this.value = clamp(this.value + amount, 0, 100);
   }
 
   subtract(amount) {
-    this.value = Math.max(0, this.value - amount);
+    this.value = clamp(this.value - amount, 0, 100);
   }
 
   update(dt, decayRate = 0.01) {

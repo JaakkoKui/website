@@ -1,8 +1,4 @@
-// Combat: a tiny reaction mini-game shown as an overlay.
-// - Shows a random key from [A,S,D,F,G]
-// - Gives the player `promptTime` ms to press ONLY that key
-// - Uses a small input grace at start to avoid accidental key carryover
-// - Uses delta-based timing to avoid random timeouts on tab throttling
+// Combat: reaction mini-game overlay that asks the player to press a random key in time.
 export default class Combat extends Phaser.Scene {
   constructor() {
     super({ key: "Combat" });
@@ -26,6 +22,7 @@ export default class Combat extends Phaser.Scene {
     // Touch/UI
     this.buttonRow = null;
     this.buttonMap = new Map(); // key -> {container, rect, label}
+    this.buttonRow = false;
   }
 
   init(data) {
@@ -39,6 +36,9 @@ export default class Combat extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
+
+    this.events.once("shutdown", this.cleanup, this);
+    this.events.once("destroy", this.cleanup, this);
 
     // Ensure keyboard is enabled and capture A,S,D,F,G so they don't leak
     this.input.keyboard.enabled = true;
@@ -248,5 +248,19 @@ export default class Combat extends Phaser.Scene {
     } else if (this.promptKeys.includes(keyName)) {
       this.failRound("wrong");
     }
+  }
+
+  cleanup() {
+    this.events.off("shutdown", this.cleanup, this);
+    this.events.off("destroy", this.cleanup, this);
+    if (this.input?.keyboard) {
+      const K = Phaser.Input.Keyboard.KeyCodes;
+      this.input.keyboard.removeCapture([K.A, K.S, K.D, K.F, K.G]);
+    }
+    for (const btn of this.buttonMap.values()) {
+      btn.container?.destroy();
+    }
+    this.buttonMap.clear();
+    this.buttonRow = false;
   }
 }

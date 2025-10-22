@@ -4,20 +4,17 @@ export class Level3 extends Phaser.Scene {
   preload() {
     this.load.setPath('assets/');
     this.load.image('lvl3bg', 'backgrounds/level3_bg.png');
-      // Use a unique key to avoid clashes with Level2's 'car' texture
-      this.load.image('car_lvl3', 'car/car1.png');
-      this.load.on('loaderror', (f) => console.warn('[Level3 loaderror]', f?.key || f));
+    this.load.image('car_lvl3', 'car/car1.png');
+    this.load.on('loaderror', (f) => console.warn('[Level3 loaderror]', f?.key || f));
   }
 
   create() {
-    // Pick aerial background (prefer kerava)
     const bgKey = 'lvl3bg';
     const srcImg = this.textures.get(bgKey).getSourceImage();
     const srcW = srcImg.naturalWidth || srcImg.width;
     const srcH = srcImg.naturalHeight || srcImg.height;
 
-    // Zoom in to feel closer to the ground
-  const BG_ZOOM = 3.1; // deeper zoom into the aerial background
+    const BG_ZOOM = 3.1;
     this.bg = this.add.image(0, 0, bgKey).setOrigin(0).setScale(BG_ZOOM);
 
     // World bounds based on zoomed background
@@ -27,13 +24,11 @@ export class Level3 extends Phaser.Scene {
     // Player
     const startX = this.worldW * 0.5;
     const startY = this.worldH * 0.6;
-    this.player = this.physics.add.sprite(startX, startY, 'car_lvl3');
-    // Normalize visual size to a consistent, readable width
-    const targetW = 56; // px on screen; tweak as needed
+  this.player = this.physics.add.sprite(startX, startY, 'car_lvl3');
+  const targetW = 56;
     const baseW = this.player.width || 100;
     const scale = targetW / baseW;
     this.player.setScale(scale).setOrigin(0.5, 0.5);
-    // Align physics body to displayed sprite for accurate bounds
     this.player.body.setSize(this.player.displayWidth, this.player.displayHeight, true);
     this.player.setCollideWorldBounds(true);
 
@@ -53,17 +48,20 @@ export class Level3 extends Phaser.Scene {
     this.followPointer = false;
     this.targetPos = new Phaser.Math.Vector2();
 
-    this.input.on('pointerdown', p => {
+    this.input.on('pointerdown', (p) => {
       this.followPointer = true;
       this.targetPos.set(p.worldX, p.worldY);
     });
-    this.input.on('pointerup', () => { this.followPointer = false; });
-    this.input.on('pointermove', p => {
+    this.input.on('pointerup', () => {
+      this.followPointer = false;
+    });
+    this.input.on('pointermove', (p) => {
       if (p.isDown) {
         this.followPointer = true;
         this.targetPos.set(p.worldX, p.worldY);
       }
     });
+    this.edgeText = null;
   }
 
   update() {
@@ -74,9 +72,11 @@ export class Level3 extends Phaser.Scene {
       const dx = this.targetPos.x - this.player.x;
       const dy = this.targetPos.y - this.player.y;
       const d = Math.hypot(dx, dy);
-      if (d > 6) { vx = (dx/d) * speed; vy = (dy/d) * speed; }
+      if (d > 6) {
+        vx = (dx / d) * speed;
+        vy = (dy / d) * speed;
+      }
     } else {
-      // WASD/Arrows as fallback
       if (this.cursors.left.isDown || this.keys.A.isDown) vx = -speed;
       else if (this.cursors.right.isDown || this.keys.D.isDown) vx = speed;
       if (this.cursors.up.isDown || this.keys.W.isDown) vy = -speed;
@@ -85,16 +85,14 @@ export class Level3 extends Phaser.Scene {
 
     this.player.setVelocity(vx, vy);
 
-    // Rotate car to face movement direction (assumes sprite graphic points UP by default)
-  const ORIENTATION_OFFSET = Math.PI / 2; // adjust if your art faces a different base direction
+    const ORIENTATION_OFFSET = Math.PI / 2;
     const moving = Math.abs(vx) + Math.abs(vy) > 1;
     if (moving) {
       const ang = Math.atan2(vy, vx);
       this.player.setRotation(ang + ORIENTATION_OFFSET);
     }
 
-    // Edge message: if near world edges, show info
-    const edgeMargin = 60; // px
+    const edgeMargin = 60;
     const nearEdge = (
       this.player.x <= edgeMargin ||
       this.player.y <= edgeMargin ||
@@ -110,7 +108,6 @@ export class Level3 extends Phaser.Scene {
         { fontFamily: 'Arial, sans-serif', fontSize: '22px', color: '#ffe082' }
       ).setOrigin(0.5, 0).setScrollFactor(0).setDepth(100).setVisible(false);
     }
-    // Keep text pinned to top center of the screen (screen-space coords with scrollFactor 0)
     const cam = this.cameras.main;
     this.edgeText.setPosition(cam.width / 2, 24);
     this.edgeText.setVisible(nearEdge);
