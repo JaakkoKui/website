@@ -160,14 +160,16 @@ export class IntroCutscene extends Phaser.Scene {
 
     this.timer = 0;
 
-    // Global hotkeys: 1->Intro, 2->Level1, 3->Level2 (track handlers for cleanup)
-    const goIntro = () => this.scene.start("Intro");
-    const goL1 = () => this.scene.start("Level1");
-    const goL2 = () => this.scene.start("Level2");
-    this._hotkeyHandlers = { goIntro, goL1, goL2 };
-    this.input.keyboard.on("keydown-ONE", goIntro, this);
-    this.input.keyboard.on("keydown-TWO", goL1, this);
-    this.input.keyboard.on("keydown-THREE", goL2, this);
+  // Global hotkeys: 1->Intro, 2->Level1, 3->Level2, 4->Level3 (track handlers for cleanup)
+  const goIntro = () => this.scene.start("Intro");
+  const goL1 = () => this.scene.start("Level1");
+  const goL2 = () => this.scene.start("Level2");
+  const goL3 = () => this.scene.start("Level3");
+  this._hotkeyHandlers = { goIntro, goL1, goL2, goL3 };
+  this.input.keyboard.on("keydown-ONE", goIntro, this);
+  this.input.keyboard.on("keydown-TWO", goL1, this);
+  this.input.keyboard.on("keydown-THREE", goL2, this);
+  this.input.keyboard.on("keydown-FOUR", goL3, this);
   }
 
   update(time, delta) {
@@ -305,10 +307,12 @@ export class IntroCutscene extends Phaser.Scene {
     }
     // Detach hotkeys if present
     if (this._hotkeyHandlers) {
-      const { goIntro, goL1, goL2 } = this._hotkeyHandlers;
+      const { goIntro, goL1, goL2, goL3 } = this._hotkeyHandlers;
       this.input.keyboard.off("keydown-ONE", goIntro, this);
       this.input.keyboard.off("keydown-TWO", goL1, this);
       this.input.keyboard.off("keydown-THREE", goL2, this);
+      this.input.keyboard.off("keydown-FOUR", goL3, this);
+      this.input.keyboard.off("keydown-NUMPAD_FOUR", goL3, this);
       this._hotkeyHandlers = null;
     }
   }

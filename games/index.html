@@ -12,7 +12,10 @@
         --card-b: #27313d;
         --accent: #ff7b29;
       }
-      html, body { height: 100%; }
+      html,
+      body {
+        height: 100%;
+      }
       body {
         margin: 0;
         color: #e6edf3;
@@ -55,15 +58,24 @@
         border-radius: 8px;
         cursor: pointer;
       }
-      .controls .fs-btn:hover { border-color: var(--accent); }
-      .game-frame {
-        flex: 1 1 auto;
-        min-height: 0; /* allow flex item to shrink */
+      .controls .fs-btn:hover {
+        border-color: var(--accent);
+      }
+      /* Stage wrapper will be explicitly sized to game aspect */
+      .stage {
+        position: relative;
+        align-self: center;
         width: 100%;
+        height: 0; /* JS sets real height */
+        max-width: 100%;
+      }
+      .game-frame {
+        display: block;
+        width: 100%;
+        height: 100%;
         background: #111;
         border: 1px solid var(--card-b);
         border-radius: var(--radius);
-        display: block;
       }
       #game-error {
         margin: 0.25rem 0 0;
@@ -80,37 +92,55 @@
       <div class="controls">
         <button id="fs-btn" type="button" class="fs-btn">Fullscreen</button>
       </div>
-      <iframe
-        id="game-frame"
-        title="Game"
-        loading="lazy"
-        allowfullscreen
-        class="game-frame"
-        style="border: none"
-      ></iframe>
+      <div id="stage" class="stage">
+        <iframe
+          id="game-frame"
+          title="Game"
+          loading="lazy"
+          allowfullscreen
+          scrolling="no"
+          class="game-frame"
+          style="border: none"
+        ></iframe>
+        <h1 style="color: #888; text-align: center; padding: 2rem">
+          Peli tulossa joskus 🦊
+        </h1>
+      </div>
       <div id="game-error"></div>
 
       <script>
         (function () {
           const frame = document.getElementById("game-frame");
-          const err = document.getElementById("game-error");
+          const stage = document.getElementById("stage");
           const fsBtn = document.getElementById("fs-btn");
 
-          // Resolve preferred source: try Phaser v2 first, then pygbag web.
-          (async function chooseSource() {
-            const tryList = ["v2/index.html", "web/index.html"];
-            for (const url of tryList) {
-              try {
-                const r = await fetch(url, { method: "HEAD", cache: "no-store" });
-                if (r.ok) {
-                  frame.src = url;
-                  return;
-                }
-              } catch {}
+          // Fixed game source (no fallback)
+          const GAME_SRC = "v2/index.html";
+          const GAME_ASPECT = 4 / 3; // 4:3 for Phaser v2
+          stage.dataset.aspect = String(GAME_ASPECT);
+          frame.src = GAME_SRC;
+
+          function layout() {
+            const aspect = Number(stage.dataset.aspect || 16 / 9);
+            const wrap = document.querySelector(".wrap");
+            const rectStageTop = stage.getBoundingClientRect();
+            const topSpace = rectStageTop.top;
+            const availH = Math.max(0, window.innerHeight - topSpace - 8);
+            const availW = wrap.clientWidth;
+            let w = Math.min(availW, Math.floor(availH * aspect));
+            let h = Math.floor(w / aspect);
+            if (w <= 0 || h <= 0) {
+              w = Math.min(availW, Math.floor(window.innerHeight * 0.9));
+              h = Math.floor(w / aspect);
             }
-            err.textContent = "No game entry found (v2/index.html or web/index.html).";
-            err.style.display = "block";
-          })();
+            stage.style.width = w + "px";
+            stage.style.height = h + "px";
+          }
+
+          window.addEventListener("resize", layout);
+          document.addEventListener("fullscreenchange", layout);
+          document.addEventListener("webkitfullscreenchange", layout);
+          layout();
 
           // Fullscreen toggle
           function isFs() {

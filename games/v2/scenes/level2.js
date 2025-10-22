@@ -1,4 +1,4 @@
-export class Level2Scene extends Phaser.Scene {
+export class Level2 extends Phaser.Scene {
   constructor() {
     super("Level2");
   }
@@ -7,8 +7,11 @@ export class Level2Scene extends Phaser.Scene {
     this.load.setPath("assets/");
     this.load.image("fa_bg2", "backgrounds/level2_bg.png");
     this.load.image("fa_mask2", "backgrounds/level2_mask.png");
+    this.load.image("car", "car/car_yard.png");
     // Single fox sprite used for all directions
     this.load.image("fox", "player.png");
+    // Car sprite for upper level interaction
+    this.load.image("car", "car/car1.png");
     this.load.on("loaderror", (f) => console.warn("[loaderror]", f?.key || f));
   }
 
@@ -56,7 +59,7 @@ export class Level2Scene extends Phaser.Scene {
       this.worldMask = new Phaser.Display.Masks.BitmapMask(this, maskImg);
       this.bg.setMask(this.worldMask);
     } else {
-      throw new Error("Mask not available (fa_mask2), no fallback allowed");
+      throw new Error("Mask not available (fa_mask2)");
     }
 
     // Mask texture sizes
@@ -130,6 +133,29 @@ export class Level2Scene extends Phaser.Scene {
 
     // Hold-to-move toward pointer (mouse/finger)
     this.followPointer = false;
+
+    // --- Car placement (upper middle) and interaction zone ---
+    const carX = this.worldW * 0.53;
+    const carY = this.worldH * 0.13; // near top quarter
+    this.car = this.add.image(carX, carY, "car").setOrigin(0.5).setScale(0.4).setDepth(-5);
+    // Create a visible trigger box around the car
+    const zoneW = (this.car.displayWidth );
+    const zoneH = (this.car.displayHeight );
+    this.carZoneRect = new Phaser.Geom.Rectangle(carX - zoneW / 2, carY - zoneH / 2, zoneW, zoneH);
+    this.carZoneBox = this.add
+      .rectangle(carX, carY, zoneW, zoneH)
+    // Prompt appears only when player is in the zone
+    this.carPrompt = this.add
+      .text(carX + 17, carY - zoneH * 0.4, "Press E to enter", {
+        fontFamily: "Arial, sans-serif",
+        fontSize: "18px",
+        color: "#e6edf3",
+        backgroundColor: "#00000080",
+        padding: { x: 8, y: 4 },
+      })
+      .setOrigin(0.5)
+      .setDepth(10)
+      .setVisible(false);
     this.targetPos = new Phaser.Math.Vector2();
     this.input.on("pointerdown", (p) => {
       this.followPointer = true;
@@ -138,7 +164,7 @@ export class Level2Scene extends Phaser.Scene {
     this.input.on("pointerup", () => {
       this.followPointer = false;
     });
-    // Keep following while dragging on touch/mobile
+    this.keys = this.input.keyboard.addKeys("W,A,S,D,SHIFT,E");
     this.input.on("pointermove", (p) => {
       if (p.isDown) {
         this.followPointer = true;
@@ -165,7 +191,7 @@ export class Level2Scene extends Phaser.Scene {
   }
 
   update() {
-    const speed = 160;
+    const speed = 220;
     let vx = 0,
       vy = 0;
 
@@ -259,5 +285,16 @@ export class Level2Scene extends Phaser.Scene {
     }
 
     this.player.setVelocity(vx, vy);
+
+    // --- Car interaction: show prompt when inside zone; E to go to Level 3 ---
+    if (this.carZoneRect) {
+      const px = this.player.x;
+      const py = this.player.y;
+      const inside = Phaser.Geom.Rectangle.Contains(this.carZoneRect, px, py);
+      this.carPrompt && this.carPrompt.setVisible(inside);
+      if (inside && this.keys.E && Phaser.Input.Keyboard.JustDown(this.keys.E)) {
+        this.scene.start("Level3");
+      }
+    }
   }
 }
