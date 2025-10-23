@@ -111,16 +111,10 @@ const config = {
 };
 
 const game = new Phaser.Game(config);
-let lastStartedKey = null;
-
 function startScene(key) {
   if (!SCENE_KEYS.includes(key)) return;
   const manager = game.scene;
   if (!manager?.keys?.[key]) return;
-  if (lastStartedKey === key && manager.isActive(key)) {
-    if (manager?.keys?.HUD) manager.bringToTop("HUD");
-    return;
-  }
 
   MANAGED_SCENES.forEach((sceneKey) => {
     if (sceneKey === key || sceneKey === "HUD") return;
@@ -139,8 +133,6 @@ function startScene(key) {
   if (manager.isActive("HUD")) {
     manager.bringToTop("HUD");
   }
-
-  lastStartedKey = key;
 }
 
 function handleHotkeys(e) {

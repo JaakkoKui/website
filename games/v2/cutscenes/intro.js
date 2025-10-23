@@ -13,7 +13,7 @@ const INTRO_CFG = {
 		yOffset: 60,
 		width: 160,
 		height: 112,
-		walkSpeed: 2,
+		walkSpeed: 4,
 	},
 	title: {
 		text: "Based on a true story",

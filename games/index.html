@@ -171,6 +171,13 @@
             };
           }
 
+          function applyStageSize(width, height) {
+            const w = `${Math.round(width)}px`;
+            const h = `${Math.round(height)}px`;
+            if (stage.style.width !== w) stage.style.width = w;
+            if (stage.style.height !== h) stage.style.height = h;
+          }
+
           function tryLockLandscape() {
             if (!("orientation" in screen) || !screen.orientation?.lock) {
               return;
@@ -183,8 +190,10 @@
 
             if (isFullscreen()) {
               const { width, height } = viewport();
-              stage.style.width = `${width}px`;
-              stage.style.height = `${height}px`;
+              wrap.classList.add("mobile-full");
+              wrap.classList.remove("is-mobile");
+              stage.style.minHeight = `${height}px`;
+              applyStageSize(width, height);
               return;
             }
 
@@ -192,34 +201,44 @@
               wrap.classList.add("mobile-full");
               wrap.classList.remove("is-mobile");
               const { width, height } = viewport();
-              stage.style.width = `${width}px`;
-              stage.style.height = `${height}px`;
               stage.style.minHeight = `${height}px`;
+              applyStageSize(width, height);
               return;
             }
 
             wrap.classList.remove("mobile-full");
+            stage.style.minHeight = "";
             const rect = stage.getBoundingClientRect();
             const topSpace = rect.top;
             const availH = Math.max(320, window.innerHeight - topSpace - 12);
             const availW = Math.max(320, wrap.clientWidth);
             wrap.classList.toggle("is-mobile", availW < 640);
-            stage.style.width = `${Math.round(availW)}px`;
-            stage.style.height = `${Math.round(availH)}px`;
+            applyStageSize(availW, availH);
           }
 
-          window.addEventListener("resize", layout, { passive: true });
+          let layoutScheduled = false;
+          function scheduleLayout() {
+            if (layoutScheduled) return;
+            layoutScheduled = true;
+            requestAnimationFrame(() => {
+              layoutScheduled = false;
+              layout();
+            });
+          }
+
+          window.addEventListener("resize", scheduleLayout, { passive: true });
           if (window.visualViewport) {
-            window.visualViewport.addEventListener("resize", layout, {
+            window.visualViewport.addEventListener("resize", scheduleLayout, {
               passive: true,
             });
           }
           if (screen.orientation && screen.orientation.addEventListener) {
-            screen.orientation.addEventListener("change", layout);
+            screen.orientation.addEventListener("change", scheduleLayout);
           }
-          document.addEventListener("fullscreenchange", layout);
-          document.addEventListener("webkitfullscreenchange", layout);
-          layout();
+          document.addEventListener("fullscreenchange", scheduleLayout);
+          document.addEventListener("webkitfullscreenchange", scheduleLayout);
+          frame.addEventListener("load", scheduleLayout, { once: true });
+          scheduleLayout();
 
           // Fullscreen toggle
           function updateFsBtn() {
@@ -239,11 +258,11 @@
             if (req && typeof req.then === "function") {
               req.then(() => {
                 tryLockLandscape();
-                layout();
+                scheduleLayout();
               });
             } else {
               tryLockLandscape();
-              layout();
+              scheduleLayout();
             }
             return req;
           }

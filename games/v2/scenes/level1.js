@@ -91,7 +91,7 @@ export default class Level1 extends Phaser.Scene {
       Phaser.Input.Keyboard.KeyCodes.SPACE,
     );
 
-    this.font = { font: "24px Arial", fill: "#ffffff" };
+    this.font = { font: "30px Arial", fill: "#ffffff" };
 
     this.jumpImage = "foxJump";
     this.standingImage = "frownFox";
@@ -112,6 +112,7 @@ export default class Level1 extends Phaser.Scene {
     this.isPhone = !!(os.android || os.iOS);
     this.input.addPointer(3);
 
+    this.hasPlacedPlayer = false;
     this.applyLayout(this.scale.gameSize);
 
     if (this.isPhone) {
@@ -131,7 +132,7 @@ export default class Level1 extends Phaser.Scene {
 
     const previousWidth = this.viewWidth || width;
     let ratio = this.playerXRatio;
-    if (previousWidth > 0 && this.player.displayWidth > 0) {
+    if (this.hasPlacedPlayer && previousWidth > 0 && this.player.displayWidth > 0) {
       ratio = (this.player.x + this.player.displayWidth / 2) / previousWidth;
     }
 
@@ -197,6 +198,10 @@ export default class Level1 extends Phaser.Scene {
     this.jumpStrength = LEVEL1_CFG.physics.jumpStrength * gravityScale;
 
     this.player.y = this.getFloorY(this.player.x) - this.player.displayHeight;
+
+    if (!this.hasPlacedPlayer) {
+      this.hasPlacedPlayer = true;
+    }
 
     if (this.segisText) {
       this.segisText.setFontSize(
