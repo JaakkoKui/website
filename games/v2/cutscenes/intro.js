@@ -129,13 +129,19 @@ export class IntroCutscene extends Phaser.Scene {
 
 		const scaleX = width / GAME_BASE_WIDTH;
 		const scaleY = height / GAME_BASE_HEIGHT;
-		this.spriteScale = Math.min(scaleX, scaleY);
-		this.walkSpeed = INTRO_CFG.fox.walkSpeed * scaleX;
+		const baseScale = Math.min(scaleX, scaleY);
+		this.spriteScale = Phaser.Math.Clamp(baseScale * 0.85, 0.35, 1.2);
+		this.walkSpeed = INTRO_CFG.fox.walkSpeed * Phaser.Math.Clamp(scaleX, 0.6, 1.2);
 
 		if (this.introText) {
 			const titleY = height / 2 - INTRO_CFG.title.verticalOffset * scaleY;
+			const scaledFont = Phaser.Math.Clamp(
+				Math.round(INTRO_CFG.title.fontSize * scaleY * 0.9),
+				18,
+				48,
+			);
 			this.introText
-				.setFontSize(Math.round(INTRO_CFG.title.fontSize * scaleY))
+				.setFontSize(scaledFont)
 				.setPosition(width / 2, titleY);
 		}
 
@@ -163,16 +169,17 @@ export class IntroCutscene extends Phaser.Scene {
 		};
 		this.updateFoxSpritePosition();
 
+		const bubbleScale = Phaser.Math.Clamp(this.spriteScale, 0.45, 1);
 		this.bubbleMetrics = {
-			width: INTRO_CFG.bubble.width * this.spriteScale,
-			height: INTRO_CFG.bubble.height * this.spriteScale,
-			offsetX: INTRO_CFG.bubble.offsetX * this.spriteScale,
-			offsetY: INTRO_CFG.bubble.offsetY * this.spriteScale,
-			textPadX: INTRO_CFG.bubble.textPadX * this.spriteScale,
-			textPadY: INTRO_CFG.bubble.textPadY * this.spriteScale,
+			width: INTRO_CFG.bubble.width * bubbleScale,
+			height: INTRO_CFG.bubble.height * bubbleScale,
+			offsetX: INTRO_CFG.bubble.offsetX * bubbleScale,
+			offsetY: INTRO_CFG.bubble.offsetY * bubbleScale,
+			textPadX: INTRO_CFG.bubble.textPadX * bubbleScale,
+			textPadY: INTRO_CFG.bubble.textPadY * bubbleScale,
 			fontSize: Math.max(
-				14,
-				Math.round(INTRO_CFG.bubble.baseFontSize * this.spriteScale),
+				12,
+				Math.round(INTRO_CFG.bubble.baseFontSize * bubbleScale),
 			),
 		};
 

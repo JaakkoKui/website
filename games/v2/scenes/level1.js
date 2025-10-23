@@ -131,25 +131,36 @@ export default class Level1 extends Phaser.Scene {
 
     const previousWidth = this.viewWidth || width;
     let ratio = this.playerXRatio;
-    if (previousWidth > 0 && this.player.x > 0) {
-      ratio = this.player.x / previousWidth;
+    if (previousWidth > 0 && this.player.displayWidth > 0) {
+      ratio = (this.player.x + this.player.displayWidth / 2) / previousWidth;
     }
 
     this.viewWidth = width;
     this.viewHeight = height;
-    this.playerXRatio = Phaser.Math.Clamp(ratio ?? this.playerXRatio, 0, 2);
+    this.playerXRatio = ratio ?? this.playerXRatio;
 
     const scaleX = width / GAME_BASE_WIDTH;
     const scaleY = height / GAME_BASE_HEIGHT;
     this.spriteScale = Math.min(scaleX, scaleY);
 
-    this.background?.setDisplaySize(width, height);
+    if (this.background) {
+      this.background.setDisplaySize(width, height);
+    }
 
     const playerDisplayWidth = LEVEL1_CFG.frame.width * this.spriteScale;
     const playerDisplayHeight = LEVEL1_CFG.frame.height * this.spriteScale;
+    const halfRatio = playerDisplayWidth / 2 / Math.max(width, 1);
+    const edgeMargin = 0.02;
+    const minRatio = Math.min(0.98, Math.max(halfRatio + edgeMargin, edgeMargin));
+    const maxRatio = Math.max(minRatio, 1 - halfRatio - edgeMargin);
+    this.playerXRatio = Phaser.Math.Clamp(
+      this.playerXRatio ?? 0.5,
+      minRatio,
+      maxRatio,
+    );
     this.player
       .setDisplaySize(playerDisplayWidth, playerDisplayHeight)
-      .setPosition(width * this.playerXRatio, this.player.y);
+      .setPosition(width * this.playerXRatio - playerDisplayWidth / 2, this.player.y);
 
     this.frameWidth = LEVEL1_CFG.frame.width;
     this.frameHeight = LEVEL1_CFG.frame.height;
@@ -179,13 +190,21 @@ export default class Level1 extends Phaser.Scene {
       LEVEL1_CFG.endBlock.height * scaleY,
     );
 
-    const speedScale = Phaser.Math.Clamp(scaleX, 0.9, 1.5);
-    const gravityScale = Phaser.Math.Clamp(scaleY, 0.9, 1.5);
+    const speedScale = Phaser.Math.Clamp(scaleX, 0.55, 1.15);
+    const gravityScale = Phaser.Math.Clamp(scaleY, 0.75, 1.25);
     this.playerSpeed = LEVEL1_CFG.speed.base * speedScale;
     this.gravity = LEVEL1_CFG.physics.gravity * gravityScale;
     this.jumpStrength = LEVEL1_CFG.physics.jumpStrength * gravityScale;
 
     this.player.y = this.getFloorY(this.player.x) - this.player.displayHeight;
+
+    if (this.segisText) {
+      this.segisText.setFontSize(
+        `${Phaser.Math.Clamp(Math.round(18 * this.spriteScale), 14, 22)}px`,
+      );
+    }
+
+    this.refreshPromptUI();
   }
 
   handleResize(gameSize) {
@@ -204,40 +223,70 @@ export default class Level1 extends Phaser.Scene {
 
   // --- UI helpers for the fridge prompt ---
   createPromptUI() {
-    if (this.promptContainer) return;
-    const cx = 525;
-    const cy = 180;
-    const cont = this.add.container(cx, cy).setDepth(1000).setScrollFactor(0);
+    if (!this.promptContainer) {
+      const cont = this.add.container(0, 0).setDepth(1000).setScrollFactor(0);
+      const graphics = this.add.graphics();
+      cont.add(graphics);
+      const text = this.add
+        .text(0, 0, "", {
+          font: "20px Arial",
+          fill: "#096904ff",
+        })
+        .setOrigin(0.5);
+      cont.add(text);
 
-    // Phaser's rectangle does not support rounded corners directly.
-    // Use Graphics to draw a rounded rectangle instead:
-    const graphics = this.add.graphics();
-    graphics.fillStyle(0xe6e6e6, 0.95);
-    graphics.lineStyle(2, 0x000000, 1);
-    graphics.fillRoundedRect(-175, -30, 350, 60, 18);
-    graphics.strokeRoundedRect(-175, -30, 350, 60, 18);
+      this.promptContainer = cont;
+      this.promptRect = graphics;
+      this.promptText = text;
+    }
 
-    cont.add(graphics);
-
-    const text = this.add
-      .text(0, 0, "", {
-        font: "22px Arial",
-        fill: "#096904ff",
-      })
-      .setOrigin(0.5);
-    cont.add(text);
-
-    this.promptContainer = cont;
-    this.promptRect = graphics;
-    this.promptText = text;
+    this.refreshPromptUI();
   }
 
   destroyPromptUI() {
     if (!this.promptContainer) return;
+    if (this.promptRect) {
+      this.promptRect.destroy();
+    }
+    if (this.promptText) {
+      this.promptText.destroy();
+    }
     this.promptContainer.destroy();
     this.promptContainer = null;
     this.promptRect = null;
     this.promptText = null;
+  }
+
+  refreshPromptUI() {
+    if (!this.promptRect || !this.promptText || !this.promptContainer) return;
+
+  const bubbleWidth = Math.round(Phaser.Math.Clamp(340 * this.spriteScale, 220, 380));
+  const bubbleHeight = Math.round(Phaser.Math.Clamp(68 * this.spriteScale, 46, 88));
+    const radius = Math.min(bubbleWidth, bubbleHeight) * 0.28;
+
+    this.promptRect.clear();
+    this.promptRect.fillStyle(0xe6e6e6, 0.95);
+    this.promptRect.lineStyle(2, 0x000000, 1);
+    this.promptRect.fillRoundedRect(
+      -bubbleWidth / 2,
+      -bubbleHeight / 2,
+      bubbleWidth,
+      bubbleHeight,
+      radius,
+    );
+    this.promptRect.strokeRoundedRect(
+      -bubbleWidth / 2,
+      -bubbleHeight / 2,
+      bubbleWidth,
+      bubbleHeight,
+      radius,
+    );
+
+    const fontSize = Phaser.Math.Clamp(Math.round(20 * this.spriteScale), 14, 22);
+    this.promptText.setFontSize(fontSize);
+    this.promptText.setWordWrapWidth(bubbleWidth * 0.82);
+
+    this.positionPromptUI();
   }
 
   handleCombat() {
@@ -571,7 +620,7 @@ export default class Level1 extends Phaser.Scene {
     }
 
     if (this.viewWidth > 0) {
-      this.playerXRatio = this.player.x / this.viewWidth;
+      this.playerXRatio = (this.player.x + this.player.displayWidth / 2) / this.viewWidth;
     }
 
     // Scaling already applied above
@@ -603,5 +652,12 @@ export default class Level1 extends Phaser.Scene {
     }
     this.cleanupControls && this.cleanupControls();
     this.destroyPromptUI && this.destroyPromptUI();
+  }
+
+  positionPromptUI() {
+    if (!this.promptContainer) return;
+    const cx = this.viewWidth * 0.64;
+    const cy = this.viewHeight * 0.32;
+    this.promptContainer.setPosition(cx, cy);
   }
 }

@@ -4,7 +4,8 @@ export class Level3 extends Phaser.Scene {
   preload() {
     this.load.setPath('assets/');
     this.load.image('lvl3bg', 'backgrounds/level3_bg.png');
-    this.load.image('car_lvl3', 'car/car1.png');
+      this.load.image('car_lvl3', 'car/car1.png');
+      this.load.image('poliisi_car', 'car/poliisi1.png');
     this.load.on('loaderror', (f) => console.warn('[Level3 loaderror]', f?.key || f));
   }
 
@@ -14,7 +15,7 @@ export class Level3 extends Phaser.Scene {
     const srcW = srcImg.naturalWidth || srcImg.width;
     const srcH = srcImg.naturalHeight || srcImg.height;
 
-    const BG_ZOOM = 3.1;
+    const BG_ZOOM = 3.2;
     this.bg = this.add.image(0, 0, bgKey).setOrigin(0).setScale(BG_ZOOM);
 
     // World bounds based on zoomed background
@@ -22,13 +23,14 @@ export class Level3 extends Phaser.Scene {
     this.worldH = srcH * BG_ZOOM;
 
     // Player
-    const startX = this.worldW * 0.8;
-    const startY = this.worldH * 0.9;
-  this.player = this.physics.add.sprite(startX, startY, 'car_lvl3');
-  const targetW = 56;
+    const startX = this.worldW * 0.5;
+    const startY = this.worldH * 0.5;
+      this.player = this.physics.add.sprite(startX, startY, 'car_lvl3');
+      this.poliisi = this.physics.add.sprite(1520, 2222, 'poliisi_car').setFlipX(true).setScale(0.25);
+      this.poliisi = this.physics.add.sprite(1840, 2750, 'poliisi_car').setScale(0.25);
+    const targetW = 56;
     const baseW = this.player.width || 100;
-    const scale = targetW / baseW;
-    this.player.setScale(scale).setOrigin(0.5, 0.5);
+    this.player.setScale(0.08).setOrigin(0.5, 0.5);
     this.player.body.setSize(this.player.displayWidth, this.player.displayHeight, true);
     this.player.setCollideWorldBounds(true);
 
@@ -65,7 +67,7 @@ export class Level3 extends Phaser.Scene {
   }
 
   update() {
-    const speed = 220;
+    const speed = 300;
     let vx = 0, vy = 0;
 
     if (this.followPointer) {

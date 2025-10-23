@@ -29,11 +29,11 @@ class HUDScene extends Phaser.Scene {
 
     const w = this.scale.width;
     const h = this.scale.height;
-    const widthRatio = Math.max(w / GAME_BASE_WIDTH, 0.5);
-    const pad = Math.max(6, Math.round(12 * widthRatio));
-    const btnW = Math.max(64, Math.round(110 * widthRatio));
-    const btnH = Math.max(32, Math.round(46 * widthRatio));
-    const gap = Math.max(6, Math.round(14 * widthRatio));
+    const scale = Phaser.Math.Clamp(w / GAME_BASE_WIDTH, 0.45, 1.05);
+    const pad = Math.max(6, Math.round(10 * scale));
+    const btnW = Math.max(48, Math.round(88 * scale));
+    const btnH = Math.max(26, Math.round(36 * scale));
+    const gap = Math.max(6, Math.round(12 * scale));
     const labels = SCENE_KEYS.map((key) => ({
       key,
       text: key === "Intro" ? "Intro" : key.replace("Level", "L"),
@@ -41,7 +41,8 @@ class HUDScene extends Phaser.Scene {
 
     const totalW = labels.length * btnW + (labels.length - 1) * gap + pad * 2;
     const x0 = (w - totalW) / 2 + pad;
-    const y0 = h - btnH - 10;
+    const footerPad = Math.max(10, Math.round(18 * scale));
+    const y0 = h - btnH - footerPad;
 
     const bar = this.add.rectangle(w / 2, y0 + btnH / 2, totalW, btnH + pad * 2, 0x000000, 0.35)
       .setScrollFactor(0)
@@ -58,7 +59,7 @@ class HUDScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true });
       const t = this.add.text(bx, by, item.text, {
         fontFamily: "Arial, sans-serif",
-        fontSize: `${Math.max(14, Math.round(btnH * 0.42))}px`,
+        fontSize: `${Phaser.Math.Clamp(Math.round(btnH * 0.42), 12, 18)}px`,
         color: "#e5e7eb",
       }).setOrigin(0.5)
         .setScrollFactor(0)

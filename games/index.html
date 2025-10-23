@@ -64,10 +64,14 @@
       /* Stage wrapper will be explicitly sized to game aspect */
       .stage {
         position: relative;
-        align-self: center;
+        align-self: stretch;
         width: 100%;
-        height: 0; /* JS sets real height */
         max-width: 100%;
+        height: 60vh;
+        min-height: 300px;
+      }
+      .wrap.is-mobile .stage {
+        min-height: 240px;
       }
       .game-frame {
         display: block;
@@ -102,9 +106,6 @@
           class="game-frame"
           style="border: none"
         ></iframe>
-        <h1 style="color: #888; text-align: center; padding: 2rem">
-          Peli tulossa joskus 🦊
-        </h1>
       </div>
       <div id="game-error"></div>
 
@@ -116,40 +117,41 @@
 
           // Fixed game source (no fallback)
           const GAME_SRC = "v2/index.html";
-          const GAME_ASPECT = 4 / 3; // 4:3 for Phaser v2
-          stage.dataset.aspect = String(GAME_ASPECT);
           frame.src = GAME_SRC;
 
+          const wrap = document.querySelector(".wrap");
+          const isFullscreen = () =>
+            document.fullscreenElement === frame ||
+            document.webkitFullscreenElement === frame;
+
           function layout() {
-            const aspect = Number(stage.dataset.aspect || 16 / 9);
-            const wrap = document.querySelector(".wrap");
-            const rectStageTop = stage.getBoundingClientRect();
-            const topSpace = rectStageTop.top;
-            const availH = Math.max(0, window.innerHeight - topSpace - 8);
-            const availW = wrap.clientWidth;
-            let w = Math.min(availW, Math.floor(availH * aspect));
-            let h = Math.floor(w / aspect);
-            if (w <= 0 || h <= 0) {
-              w = Math.min(availW, Math.floor(window.innerHeight * 0.9));
-              h = Math.floor(w / aspect);
+            if (!wrap) return;
+
+            if (isFullscreen()) {
+              stage.style.width = `${window.innerWidth}px`;
+              stage.style.height = `${window.innerHeight}px`;
+              return;
             }
-            stage.style.width = w + "px";
-            stage.style.height = h + "px";
+
+            const rect = stage.getBoundingClientRect();
+            const topSpace = rect.top;
+            const availH = Math.max(320, window.innerHeight - topSpace - 12);
+            const availW = Math.max(320, wrap.clientWidth);
+            wrap.classList.toggle("is-mobile", availW < 640);
+            stage.style.width = `${Math.round(availW)}px`;
+            stage.style.height = `${Math.round(availH)}px`;
           }
 
-          window.addEventListener("resize", layout);
+          window.addEventListener("resize", layout, { passive: true });
           document.addEventListener("fullscreenchange", layout);
           document.addEventListener("webkitfullscreenchange", layout);
           layout();
 
           // Fullscreen toggle
-          function isFs() {
-            return (
-              document.fullscreenElement || document.webkitFullscreenElement
-            );
-          }
           function updateFsBtn() {
-            fsBtn.textContent = isFs() ? "Exit Fullscreen" : "Fullscreen";
+            fsBtn.textContent = isFullscreen()
+              ? "Exit Fullscreen"
+              : "Fullscreen";
           }
           function enterFs(el) {
             if (el.requestFullscreen) return el.requestFullscreen();
@@ -161,7 +163,7 @@
               return document.webkitExitFullscreen();
           }
           fsBtn.addEventListener("click", () => {
-            if (isFs()) exitFs();
+            if (isFullscreen()) exitFs();
             else enterFs(frame);
           });
           document.addEventListener("fullscreenchange", updateFsBtn);
