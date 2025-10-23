@@ -6,6 +6,7 @@ export class Level3 extends Phaser.Scene {
     this.load.image('lvl3bg', 'backgrounds/level3_bg.png');
       this.load.image('car_lvl3', 'car/car1.png');
       this.load.image('poliisi_car', 'car/poliisi1.png');
+      this.load.image('Alcho', 'miscImages/alchoNoBG.png');
     this.load.on('loaderror', (f) => console.warn('[Level3 loaderror]', f?.key || f));
   }
 
@@ -23,11 +24,12 @@ export class Level3 extends Phaser.Scene {
     this.worldH = srcH * BG_ZOOM;
 
     // Player
-    const startX = this.worldW * 0.5;
+    const startX = this.worldW * 0.4;
     const startY = this.worldH * 0.5;
-      this.player = this.physics.add.sprite(startX, startY, 'car_lvl3');
-      this.poliisi = this.physics.add.sprite(1520, 2222, 'poliisi_car').setFlipX(true).setScale(0.25);
-      this.poliisi = this.physics.add.sprite(1840, 2750, 'poliisi_car').setScale(0.25);
+    this.player = this.physics.add.sprite(startX, startY, 'car_lvl3');
+    this.poliisi = this.physics.add.sprite(1650, 2500, 'poliisi_car').setFlipX(true).setScale(0.25);
+    this.poliisi = this.physics.add.sprite(2000, 3100, 'poliisi_car').setScale(0.25);
+    this.alcho = this.physics.add.sprite(1860, 2370, 'Alcho').setScale(0.40);
     const targetW = 56;
     const baseW = this.player.width || 100;
     this.player.setScale(0.08).setOrigin(0.5, 0.5);
