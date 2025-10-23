@@ -43,7 +43,7 @@ export default class Level1 extends Phaser.Scene {
     this.touchButtons = null; // for cleanup
     this.viewWidth = GAME_BASE_WIDTH;
     this.viewHeight = GAME_BASE_HEIGHT;
-    this.playerXRatio = 0.2;
+    this.playerXRatio = 0.32;
     this.spriteScale = 1;
   }
 

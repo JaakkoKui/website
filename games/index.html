@@ -32,6 +32,13 @@
         margin: 0 auto;
         max-width: 1100px;
       }
+      .wrap.mobile-full {
+        padding: 0;
+        gap: 0;
+        max-width: none;
+        height: 100dvh;
+        width: 100dvw;
+      }
       .breadcrumb {
         font-size: 0.85rem;
         margin: 0;
@@ -39,6 +46,24 @@
       .breadcrumb a {
         color: #9acaff;
         text-decoration: none;
+      }
+      .wrap.mobile-full .breadcrumb,
+      .wrap.mobile-full h1 {
+        display: none;
+      }
+      .wrap.mobile-full .controls {
+        display: flex;
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        z-index: 50;
+        margin: 0;
+      }
+      .wrap.mobile-full .controls .fs-btn {
+        background: rgba(11, 17, 27, 0.85);
+        border-color: rgba(39, 49, 61, 0.9);
+        border-radius: 999px;
+        padding: 0.45rem 0.85rem;
       }
       h1 {
         margin: 0;
@@ -73,6 +98,12 @@
       .wrap.is-mobile .stage {
         min-height: 240px;
       }
+      .wrap.mobile-full .stage {
+        flex: 1;
+        height: 100%;
+        min-height: 100%;
+        width: 100%;
+      }
       .game-frame {
         display: block;
         width: 100%;
@@ -80,6 +111,10 @@
         background: #111;
         border: 1px solid var(--card-b);
         border-radius: var(--radius);
+      }
+      .wrap.mobile-full .game-frame {
+        border-radius: 0;
+        border: none;
       }
       #game-error {
         margin: 0.25rem 0 0;
@@ -101,6 +136,7 @@
           id="game-frame"
           title="Game"
           loading="lazy"
+          allow="fullscreen; orientation-lock"
           allowfullscreen
           scrolling="no"
           class="game-frame"
@@ -120,19 +156,49 @@
           frame.src = GAME_SRC;
 
           const wrap = document.querySelector(".wrap");
+          const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(
+            navigator.userAgent
+          );
           const isFullscreen = () =>
             document.fullscreenElement === frame ||
             document.webkitFullscreenElement === frame;
+
+          function viewport() {
+            const vv = window.visualViewport;
+            return {
+              width: Math.round((vv && vv.width) || window.innerWidth),
+              height: Math.round((vv && vv.height) || window.innerHeight),
+            };
+          }
+
+          function tryLockLandscape() {
+            if (!("orientation" in screen) || !screen.orientation?.lock) {
+              return;
+            }
+            screen.orientation.lock("landscape").catch(() => {});
+          }
 
           function layout() {
             if (!wrap) return;
 
             if (isFullscreen()) {
-              stage.style.width = `${window.innerWidth}px`;
-              stage.style.height = `${window.innerHeight}px`;
+              const { width, height } = viewport();
+              stage.style.width = `${width}px`;
+              stage.style.height = `${height}px`;
               return;
             }
 
+            if (isMobile) {
+              wrap.classList.add("mobile-full");
+              wrap.classList.remove("is-mobile");
+              const { width, height } = viewport();
+              stage.style.width = `${width}px`;
+              stage.style.height = `${height}px`;
+              stage.style.minHeight = `${height}px`;
+              return;
+            }
+
+            wrap.classList.remove("mobile-full");
             const rect = stage.getBoundingClientRect();
             const topSpace = rect.top;
             const availH = Math.max(320, window.innerHeight - topSpace - 12);
@@ -143,6 +209,14 @@
           }
 
           window.addEventListener("resize", layout, { passive: true });
+          if (window.visualViewport) {
+            window.visualViewport.addEventListener("resize", layout, {
+              passive: true,
+            });
+          }
+          if (screen.orientation && screen.orientation.addEventListener) {
+            screen.orientation.addEventListener("change", layout);
+          }
           document.addEventListener("fullscreenchange", layout);
           document.addEventListener("webkitfullscreenchange", layout);
           layout();
@@ -152,10 +226,26 @@
             fsBtn.textContent = isFullscreen()
               ? "Exit Fullscreen"
               : "Fullscreen";
+            if (isMobile) {
+              fsBtn.style.display = "inline-flex";
+            }
           }
           function enterFs(el) {
-            if (el.requestFullscreen) return el.requestFullscreen();
-            if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen(); // Safari
+            let req;
+            if (el.requestFullscreen) req = el.requestFullscreen();
+            else if (el.webkitRequestFullscreen)
+              req = el.webkitRequestFullscreen(); // Safari
+
+            if (req && typeof req.then === "function") {
+              req.then(() => {
+                tryLockLandscape();
+                layout();
+              });
+            } else {
+              tryLockLandscape();
+              layout();
+            }
+            return req;
           }
           function exitFs() {
             if (document.exitFullscreen) return document.exitFullscreen();
@@ -169,6 +259,15 @@
           document.addEventListener("fullscreenchange", updateFsBtn);
           document.addEventListener("webkitfullscreenchange", updateFsBtn);
           updateFsBtn();
+
+          if (isMobile) {
+            const armFs = () => {
+              if (isFullscreen()) return;
+              enterFs(frame)?.catch(() => {});
+            };
+            window.addEventListener("touchend", armFs, { once: true });
+            window.addEventListener("pointerup", armFs, { once: true });
+          }
         })();
       </script>
     </div>

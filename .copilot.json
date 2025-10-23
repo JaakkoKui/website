@@ -4,6 +4,7 @@
     "Comment all functions using JSDoc style.",
     "write simple code, no unnecessary code without purpose.",
     "Put simple teaching comments above the code they refer to, no need to comment every line only the hard stuff.",
-    "Keep it simple and concise."
+    "Keep it simple and concise.",
+    "Focus on mobile development rather than pc."
   ]
 }
