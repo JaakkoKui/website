@@ -22,8 +22,8 @@ export class Level3 extends Phaser.Scene {
     this.worldH = srcH * BG_ZOOM;
 
     // Player
-    const startX = this.worldW * 0.5;
-    const startY = this.worldH * 0.6;
+    const startX = this.worldW * 0.8;
+    const startY = this.worldH * 0.9;
   this.player = this.physics.add.sprite(startX, startY, 'car_lvl3');
   const targetW = 56;
     const baseW = this.player.width || 100;
@@ -92,7 +92,7 @@ export class Level3 extends Phaser.Scene {
       this.player.setRotation(ang + ORIENTATION_OFFSET);
     }
 
-    const edgeMargin = 60;
+    const edgeMargin = 160;
     const nearEdge = (
       this.player.x <= edgeMargin ||
       this.player.y <= edgeMargin ||
@@ -103,13 +103,18 @@ export class Level3 extends Phaser.Scene {
       const cam = this.cameras.main;
       this.edgeText = this.add.text(
         cam.width / 2,
-        24,
+        120,
         "Alcho isn't here",
-        { fontFamily: 'Arial, sans-serif', fontSize: '22px', color: '#ffe082' }
+        { fontFamily: "Arial, sans-serif",
+        fontSize: "30px",
+        color: "#e9600bff",
+        backgroundColor: "#00000080",
+        padding: { x: 8, y: 4 },
+      }
       ).setOrigin(0.5, 0).setScrollFactor(0).setDepth(100).setVisible(false);
     }
     const cam = this.cameras.main;
-    this.edgeText.setPosition(cam.width / 2, 24);
+    this.edgeText.setPosition(cam.width / 2, 120);
     this.edgeText.setVisible(nearEdge);
   }
 }

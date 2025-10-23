@@ -2,6 +2,10 @@
 // Move with arrows (or touch on phones), jump with Up/touch, drink with G near the fridge.
 import Combat from "../core/combat.js";
 import { segis, getRainbowColor } from "../core/segis.js";
+import {
+  GAME_BASE_HEIGHT,
+  GAME_BASE_WIDTH,
+} from "../core/constants.js";
 
 // Central configuration for Level 1: tweak values here (sizes, physics, zones)
 const LEVEL1_CFG = {
@@ -37,6 +41,10 @@ export default class Level1 extends Phaser.Scene {
     this.touchRight = false;
     this.touchJumpQueued = false; // one-shot tap
     this.touchButtons = null; // for cleanup
+    this.viewWidth = GAME_BASE_WIDTH;
+    this.viewHeight = GAME_BASE_HEIGHT;
+    this.playerXRatio = 0.2;
+    this.spriteScale = 1;
   }
 
   preload() {
@@ -50,80 +58,141 @@ export default class Level1 extends Phaser.Scene {
   }
 
   create() {
-    const { width, height } = this.scale;
-
     this.background = this.add
       .image(0, 0, "background")
-      .setOrigin(0)
-      .setDisplaySize(width, height);
+      .setOrigin(0, 0);
 
-    // Player spawns at quarter width, front-facing frown by default (pre-drink)
-    this.player = this.add.image(width * 0.2, 520, "frownFox");
-    this.player.setOrigin(0);
+    this.player = this.add.image(0, 0, "frownFox").setOrigin(0, 0);
     this.player.setDisplaySize(LEVEL1_CFG.frame.width, LEVEL1_CFG.frame.height);
 
-  // Base logical size; visual size is scaled during update for fake depth
     this.frameWidth = LEVEL1_CFG.frame.width;
     this.frameHeight = LEVEL1_CFG.frame.height;
 
-    // Floor slope points (linear interpolation used to place the feet on the floor)
     this.floorStart = { ...LEVEL1_CFG.floor.start };
     this.floorEnd = { ...LEVEL1_CFG.floor.end };
 
-  // Thin blocker at left to prevent walking into the wall
     this.blockRect = new Phaser.Geom.Rectangle(
-      width * LEVEL1_CFG.block.xFrac,
+      0,
       0,
       LEVEL1_CFG.block.width,
       LEVEL1_CFG.block.height,
     );
 
-    // End rect: AFTER the door (beyond right edge) so transition happens after exiting
     this.endBlockRect = new Phaser.Geom.Rectangle(
-      width + LEVEL1_CFG.endBlock.offsetX,
-      this.floorEnd.y - 200,
+      0,
+      0,
       LEVEL1_CFG.endBlock.width,
       LEVEL1_CFG.endBlock.height,
     );
 
-    // Input
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keyG = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.G);
     this.keySpace = this.input.keyboard.addKey(
       Phaser.Input.Keyboard.KeyCodes.SPACE,
     );
 
-    // Shared font style
     this.font = { font: "24px Arial", fill: "#ffffff" };
 
     this.jumpImage = "foxJump";
-    // Use frownFox as default before drinking
     this.standingImage = "frownFox";
     this.didDrinkImage = "foxDidDrink";
-    // Reset carry-over state on scene start
     this.didDrink = false;
     this.playerSpeed = LEVEL1_CFG.speed.base;
 
-    // Segis HUD (top-left)
     this.segisText = this.add
       .text(15, 15, "Segis: 0", LEVEL1_CFG.hud.font)
       .setScrollFactor(0);
 
-    // Mobile controls: show only on phones; enable multi-touch
     const os =
       (this.sys &&
         this.sys.game &&
         this.sys.game.device &&
         this.sys.game.device.os) ||
       {};
-    const isPhone = !!(os.android || os.iOS);
+    this.isPhone = !!(os.android || os.iOS);
     this.input.addPointer(3);
-    if (isPhone) {
-      this.createMobileControls();
+
+    this.applyLayout(this.scale.gameSize);
+
+    if (this.isPhone) {
+      this.recreateMobileControls();
     }
-    // Unified cleanup to avoid leaks (applies to both desktop and phone)
+
     this.events.once("shutdown", this.cleanupScene, this);
     this.events.once("destroy", this.cleanupScene, this);
+    this.scale.on("resize", this.handleResize, this);
+
+    this.player.y = this.getFloorY(this.player.x) - this.player.displayHeight;
+  }
+
+  applyLayout(gameSize) {
+    const width = gameSize?.width ?? this.scale.gameSize.width ?? GAME_BASE_WIDTH;
+    const height = gameSize?.height ?? this.scale.gameSize.height ?? GAME_BASE_HEIGHT;
+
+    const previousWidth = this.viewWidth || width;
+    let ratio = this.playerXRatio;
+    if (previousWidth > 0 && this.player.x > 0) {
+      ratio = this.player.x / previousWidth;
+    }
+
+    this.viewWidth = width;
+    this.viewHeight = height;
+    this.playerXRatio = Phaser.Math.Clamp(ratio ?? this.playerXRatio, 0, 2);
+
+    const scaleX = width / GAME_BASE_WIDTH;
+    const scaleY = height / GAME_BASE_HEIGHT;
+    this.spriteScale = Math.min(scaleX, scaleY);
+
+    this.background?.setDisplaySize(width, height);
+
+    const playerDisplayWidth = LEVEL1_CFG.frame.width * this.spriteScale;
+    const playerDisplayHeight = LEVEL1_CFG.frame.height * this.spriteScale;
+    this.player
+      .setDisplaySize(playerDisplayWidth, playerDisplayHeight)
+      .setPosition(width * this.playerXRatio, this.player.y);
+
+    this.frameWidth = LEVEL1_CFG.frame.width;
+    this.frameHeight = LEVEL1_CFG.frame.height;
+
+    this.floorStart = {
+      x: LEVEL1_CFG.floor.start.x * scaleX,
+      y: LEVEL1_CFG.floor.start.y * scaleY,
+    };
+    this.floorEnd = {
+      x: LEVEL1_CFG.floor.end.x * scaleX,
+      y: LEVEL1_CFG.floor.end.y * scaleY,
+    };
+
+    const blockWidth = Math.max(LEVEL1_CFG.block.width * scaleX, 2);
+    const blockHeight = LEVEL1_CFG.block.height * scaleY;
+    this.blockRect.setTo(
+      width * LEVEL1_CFG.block.xFrac,
+      0,
+      blockWidth,
+      blockHeight,
+    );
+
+    this.endBlockRect.setTo(
+      width + LEVEL1_CFG.endBlock.offsetX * scaleX,
+      this.floorEnd.y - 200 * scaleY,
+      Math.max(LEVEL1_CFG.endBlock.width * scaleX, 4),
+      LEVEL1_CFG.endBlock.height * scaleY,
+    );
+
+    const speedScale = Phaser.Math.Clamp(scaleX, 0.9, 1.5);
+    const gravityScale = Phaser.Math.Clamp(scaleY, 0.9, 1.5);
+    this.playerSpeed = LEVEL1_CFG.speed.base * speedScale;
+    this.gravity = LEVEL1_CFG.physics.gravity * gravityScale;
+    this.jumpStrength = LEVEL1_CFG.physics.jumpStrength * gravityScale;
+
+    this.player.y = this.getFloorY(this.player.x) - this.player.displayHeight;
+  }
+
+  handleResize(gameSize) {
+    this.applyLayout(gameSize);
+    if (this.isPhone) {
+      this.recreateMobileControls();
+    }
   }
 
   ensureCombatRegistered() {
@@ -270,22 +339,28 @@ export default class Level1 extends Phaser.Scene {
   }
 
   // --- Mobile controls (phone-only) --------------------------------------
-  createMobileControls() {
-    const { width, height } = this.scale;
-    const btnW = 84;
-    const btnH = 72;
-    const gap = 12;
-    const y = height - btnH / 2 - 16;
+  recreateMobileControls() {
+    this.cleanupControls();
+    const width = this.viewWidth;
+    const height = this.viewHeight;
+    const scale = Math.max(width / GAME_BASE_WIDTH, 0.75);
+    const btnW = Math.round(84 * scale);
+    const btnH = Math.round(72 * scale);
+    const gap = Math.round(12 * scale);
+    const y = height - btnH / 2 - Math.round(16 * scale);
 
     const makeBtn = (x, label, onDown, onUp, color = 0x222222) => {
-      const cont = this.add.container(x, y).setScrollFactor(0);
+      const cont = this.add.container(x, y).setScrollFactor(0).setDepth(5000);
       const rect = this.add
         .rectangle(0, 0, btnW, btnH, color)
         .setOrigin(0.5)
         .setStrokeStyle(2, 0xffffff)
         .setInteractive({ useHandCursor: true });
       const txt = this.add
-        .text(0, 0, label, { font: "22px Arial", fill: "#ffffff" })
+        .text(0, 0, label, {
+          font: `${Math.max(18, Math.round(22 * scale))}px Arial`,
+          fill: "#ffffff",
+        })
         .setOrigin(0.5);
       cont.add([rect, txt]);
       rect.on("pointerdown", () => {
@@ -302,9 +377,9 @@ export default class Level1 extends Phaser.Scene {
       return { cont, rect, txt };
     };
 
-    const leftX = 20 + btnW / 2;
+    const leftX = 20 * scale + btnW / 2;
     const rightX = leftX + btnW + gap;
-    const jumpX = width - (20 + btnW / 2);
+    const jumpX = width - (20 * scale + btnW / 2);
     const drinkX = jumpX - (btnW + gap);
 
     const leftBtn = makeBtn(
@@ -356,7 +431,7 @@ export default class Level1 extends Phaser.Scene {
 
   update(time, delta) {
     const dt = delta;
-    const width = this.scale.width;
+    const width = this.viewWidth;
     const prevX = this.player.x;
 
     // Rainbow color phase advances based on current Segis value
@@ -376,8 +451,8 @@ export default class Level1 extends Phaser.Scene {
     // We'll compute collision rectangles right before use to avoid stale values after movement
 
     // Drink prompt trigger zone
-    const fridgeXMin = width * LEVEL1_CFG.fridgeZone.minFrac;
-    const fridgeXMax = width * LEVEL1_CFG.fridgeZone.maxFrac;
+  const fridgeXMin = width * LEVEL1_CFG.fridgeZone.minFrac;
+  const fridgeXMax = width * LEVEL1_CFG.fridgeZone.maxFrac;
     const canDrink = this.wins < 3 && !this.didDrink;
     this.showDrinkPrompt =
       this.player.x >= fridgeXMin && this.player.x <= fridgeXMax && canDrink;
@@ -495,6 +570,10 @@ export default class Level1 extends Phaser.Scene {
       this.player.flipX = !this.facingRight;
     }
 
+    if (this.viewWidth > 0) {
+      this.playerXRatio = this.player.x / this.viewWidth;
+    }
+
     // Scaling already applied above
 
     // Drink prompt UI
@@ -519,6 +598,9 @@ export default class Level1 extends Phaser.Scene {
 
   // Unified cleanup: mobile controls and prompt UI
   cleanupScene() {
+    if (this.scale) {
+      this.scale.off("resize", this.handleResize, this);
+    }
     this.cleanupControls && this.cleanupControls();
     this.destroyPromptUI && this.destroyPromptUI();
   }

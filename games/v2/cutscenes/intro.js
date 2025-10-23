@@ -1,281 +1,367 @@
-// Intro cutscene: shows a fading title, then a short sequence with the fox and a speech bubble.
-// Uses StoryTeller for typewriter text and a rounded box.
-// All tunables are centralized in INTRO_CFG below so changes are in one place.
+// Intro cutscene: responsive layout with fading title and fox animation.
+// Uses StoryTeller for typewriter text and a rounded speech bubble.
 import { StoryTeller } from "../core/storytelling.js";
+import {
+	GAME_BASE_HEIGHT,
+	GAME_BASE_WIDTH,
+} from "../core/constants.js";
 
-// Centralized config for the Intro scene
 const INTRO_CFG = {
-  fox: {
-    startX: 360,
-    startY: 580,
-    yOffset: 60, // visual lift
-    width: 160,
-    height: 112,
-    walkSpeed: 2,
-  },
-  title: {
-    text: "Based on a true story",
-    fadeDelay: 1000,
-    fadeDuration: 1000,
-    fontFamily: "comic sans ms, sans-serif",
-    fontSize: "40px",
-    color: "#fd7600ff",
-  },
-  timings: {
-    silentEnd: 3000,
-    talkingEnd: 6500,
-    flippingEnd: 8000,
-    endSceneAt: 10000,
-  },
-  bubble: {
-    text: "Potions...",
-    offsetX: 70,
-    offsetY: -70,
-    width: 130,
-    height: 40,
-    textPadX: 20,
-    textPadY: 8,
-    fill: 0xd5d0d0ff,
-    stroke: 0x000000,
-  },
+	fox: {
+		startX: 360,
+		startY: 580,
+		yOffset: 60,
+		width: 160,
+		height: 112,
+		walkSpeed: 2,
+	},
+	title: {
+		text: "Based on a true story",
+		fadeDelay: 1000,
+		fadeDuration: 1000,
+		fontFamily: "comic sans ms, sans-serif",
+		fontSize: 40,
+		color: "#fd7600ff",
+		verticalOffset: 100,
+	},
+	timings: {
+		silentEnd: 3000,
+		talkingEnd: 6500,
+		flippingEnd: 8000,
+		endSceneAt: 10000,
+	},
+	bubble: {
+		text: "Potions...",
+		offsetX: 70,
+		offsetY: -70,
+		width: 130,
+		height: 40,
+		textPadX: 20,
+		textPadY: 8,
+		fill: 0xd5d0d0ff,
+		stroke: 0x000000,
+		baseFontSize: 18,
+	},
 };
 
-// Simple state enum
 const STATES = {
-  SILENT: "silent",
-  TALKING: "talking",
-  FLIPPING: "flipping",
-  WALKING: "walking",
+	SILENT: "silent",
+	TALKING: "talking",
+	FLIPPING: "flipping",
+	WALKING: "walking",
 };
 
 export class IntroCutscene extends Phaser.Scene {
-  constructor() {
-    super({ key: "Intro" });
-    this.textFadeDuration = INTRO_CFG.title.fadeDuration;
-    this.resetSceneState();
-  }
+	constructor() {
+		super({ key: "Intro" });
+		this.textFadeDuration = INTRO_CFG.title.fadeDuration;
+		this._foxProgress = INTRO_CFG.fox.startX / GAME_BASE_WIDTH;
+		this.viewWidth = GAME_BASE_WIDTH;
+		this.viewHeight = GAME_BASE_HEIGHT;
+	}
 
-  init() {
-    this.resetSceneState();
-  }
+	init() {
+		this.resetSceneState();
+	}
 
-  preload() {
-    this.load.setPath("assets/");
-    this.load.image("backgroundSofa", "backgrounds/sofa.png");
-    this.load.image("foxStanding", "fromSide/foxStanding.png");
-    this.load.image("foxTired", "fromSide/tiredFox.png");
-    this.load.image("foxFrown", "fromSide/frownFox.png");
-  }
+	preload() {
+		this.load.setPath("assets/");
+		this.load.image("backgroundSofa", "backgrounds/sofa.png");
+		this.load.image("foxStanding", "fromSide/foxStanding.png");
+		this.load.image("foxTired", "fromSide/tiredFox.png");
+		this.load.image("foxFrown", "fromSide/frownFox.png");
+	}
 
-  create() {
-    const { width, height } = this.scale;
+	create() {
+		this.events.on("postupdate", this.handlePostUpdate, this);
+		this.events.once("shutdown", this.cleanup, this);
+		this.events.once("destroy", this.cleanup, this);
 
-    this.events.on("postupdate", this.handlePostUpdate, this);
-    this.events.once("shutdown", this.cleanup, this);
-    this.events.once("destroy", this.cleanup, this);
+		this._handleResize = (gameSize) => this.applyLayout(gameSize);
+		this.scale.on("resize", this._handleResize, this);
 
-    // Intro text
-    this.introText = this.add
-      .text(width / 2, height / 2 - 100, INTRO_CFG.title.text, {
-        fontFamily: INTRO_CFG.title.fontFamily,
-        fontSize: INTRO_CFG.title.fontSize,
-        color: INTRO_CFG.title.color,
-      })
-      .setOrigin(0.5, 0.5);
+		this.buildScene();
+		this.applyLayout(this.scale.gameSize);
+		this.setFoxState(STATES.SILENT);
 
-    // Background (hidden until text fades)
-    this.background = this.add
-      .image(width / 2, height / 2, "backgroundSofa")
-      .setDisplaySize(width, height)
-      .setVisible(false);
+		this.enterKey = this.input.keyboard.addKey(
+			Phaser.Input.Keyboard.KeyCodes.ENTER,
+		);
 
-    // Fox sprites (position already has the y-offset applied)
-    this.foxTired = this.add
-      .image(this.foxPos.x, this.foxPos.y, "foxTired")
-      .setDisplaySize(INTRO_CFG.fox.width, INTRO_CFG.fox.height)
-      .setVisible(false);
-    this.foxFrown = this.add
-      .image(this.foxPos.x, this.foxPos.y, "foxFrown")
-      .setDisplaySize(INTRO_CFG.fox.width, INTRO_CFG.fox.height)
-      .setVisible(false);
+		this.timer = 0;
+	}
 
-    // Flip the tired fox vertically (like in pygame)
-    this.foxTiredFlipped = this.add
-      .image(this.foxPos.x, this.foxPos.y, "foxTired")
-      .setDisplaySize(INTRO_CFG.fox.width, INTRO_CFG.fox.height)
-      .setFlipY(true)
-      .setVisible(false);
+	buildScene() {
+		this.introText = this.add
+			.text(0, 0, INTRO_CFG.title.text, {
+				fontFamily: INTRO_CFG.title.fontFamily,
+				fontSize: `${INTRO_CFG.title.fontSize}px`,
+				color: INTRO_CFG.title.color,
+			})
+			.setOrigin(0.5, 0.5);
 
-    this.setFoxState(STATES.SILENT);
+		this.background = this.add
+			.image(0, 0, "backgroundSofa")
+			.setVisible(false)
+			.setOrigin(0.5, 0.5);
 
-    // Keyboard
-    this.enterKey = this.input.keyboard.addKey(
-      Phaser.Input.Keyboard.KeyCodes.ENTER,
-    );
+		this.foxTired = this.add
+			.image(0, 0, "foxTired")
+			.setOrigin(0.5, 0.5)
+			.setVisible(false);
+		this.foxFrown = this.add
+			.image(0, 0, "foxFrown")
+			.setOrigin(0.5, 0.5)
+			.setVisible(false);
+		this.foxTiredFlipped = this.add
+			.image(0, 0, "foxTired")
+			.setOrigin(0.5, 0.5)
+			.setFlipY(true)
+			.setVisible(false);
+	}
 
-    this.timer = 0;
-  }
+	applyLayout(gameSize) {
+		const width = gameSize?.width ?? this.scale.width ?? GAME_BASE_WIDTH;
+		const height = gameSize?.height ?? this.scale.height ?? GAME_BASE_HEIGHT;
+		this.prevViewWidth = this.viewWidth;
+		this.viewWidth = width;
+		this.viewHeight = height;
 
-  update(time, delta) {
-    const dt = delta;
+		const scaleX = width / GAME_BASE_WIDTH;
+		const scaleY = height / GAME_BASE_HEIGHT;
+		this.spriteScale = Math.min(scaleX, scaleY);
+		this.walkSpeed = INTRO_CFG.fox.walkSpeed * scaleX;
 
-    // Handle enter → skip to level1
-    if (Phaser.Input.Keyboard.JustDown(this.enterKey)) {
-      this.scene.start("Level1");
-    }
+		if (this.introText) {
+			const titleY = height / 2 - INTRO_CFG.title.verticalOffset * scaleY;
+			this.introText
+				.setFontSize(Math.round(INTRO_CFG.title.fontSize * scaleY))
+				.setPosition(width / 2, titleY);
+		}
 
-    this.timer += dt;
+		if (this.background) {
+			this.background
+				.setPosition(width / 2, height / 2)
+				.setDisplaySize(width, height);
+		}
 
-    // Fade out intro text
-    if (this.timer > INTRO_CFG.title.fadeDelay && this.textAlpha > 0) {
-      this.textAlpha -= dt / this.textFadeDuration;
-      if (this.textAlpha < 0) this.textAlpha = 0;
-      this.introText.setAlpha(this.textAlpha);
-      if (this.textAlpha === 0) {
-        this.background.setVisible(true);
-      }
-    }
+		const foxWidth = INTRO_CFG.fox.width * this.spriteScale;
+		const foxHeight = INTRO_CFG.fox.height * this.spriteScale;
+		[this.foxTired, this.foxFrown, this.foxTiredFlipped].forEach((sprite) => {
+			sprite?.setDisplaySize(foxWidth, foxHeight);
+		});
 
-    // State switching
-    let nextState;
-    if (this.timer < INTRO_CFG.timings.silentEnd) {
-      nextState = STATES.SILENT;
-    } else if (this.timer < INTRO_CFG.timings.talkingEnd) {
-      nextState = STATES.TALKING;
-    } else if (this.timer < INTRO_CFG.timings.flippingEnd) {
-      nextState = STATES.FLIPPING;
-    } else {
-      nextState = STATES.WALKING;
-    }
-    this.foxState = nextState;
+		const priorWidth = this.prevViewWidth || width;
+		if (this.foxPos) {
+			this._foxProgress = this.foxPos.x / priorWidth;
+		}
+		const foxYRatio =
+			(INTRO_CFG.fox.startY - INTRO_CFG.fox.yOffset) / GAME_BASE_HEIGHT;
+		this.foxPos = {
+			x: width * this._foxProgress,
+			y: height * foxYRatio,
+		};
+		this.updateFoxSpritePosition();
 
-    // Start storyteller when talking starts
-    if (this.foxState === STATES.TALKING && !this.storyteller) {
-      this.storyteller = new StoryTeller(
-        this,
-        "The Fox awakens to the new day with a hungover curse...",
-      );
-    }
-    if (this.storyteller) {
-      this.storyteller.update(dt);
-    }
+		this.bubbleMetrics = {
+			width: INTRO_CFG.bubble.width * this.spriteScale,
+			height: INTRO_CFG.bubble.height * this.spriteScale,
+			offsetX: INTRO_CFG.bubble.offsetX * this.spriteScale,
+			offsetY: INTRO_CFG.bubble.offsetY * this.spriteScale,
+			textPadX: INTRO_CFG.bubble.textPadX * this.spriteScale,
+			textPadY: INTRO_CFG.bubble.textPadY * this.spriteScale,
+			fontSize: Math.max(
+				14,
+				Math.round(INTRO_CFG.bubble.baseFontSize * this.spriteScale),
+			),
+		};
 
-    // Update fox positions / visibility
-    if (this.textAlpha === 0) {
-      // Toggle visibility only on state change
-      this.setFoxState(this.foxState);
+		if (this.bubbleContainer) {
+			const bx = this.foxPos.x + this.bubbleMetrics.offsetX;
+			const by = this.foxPos.y + this.bubbleMetrics.offsetY;
+			this.updateTalkBubblePosition(bx, by);
+		}
+	}
 
-      if (this.foxState === STATES.WALKING) {
-        this.foxPos.x += INTRO_CFG.fox.walkSpeed;
-      }
-      // Keep the active sprite at current position
-      if (this.currentFoxSprite) {
-        this.currentFoxSprite.setPosition(this.foxPos.x, this.foxPos.y);
-      }
+	update(time, delta) {
+		const dt = delta;
 
-      // Maintain a bubble that follows the fox while walking
-      if (this.foxState === STATES.WALKING) {
-        this.showTalkBubble(INTRO_CFG.bubble.text);
-        const bx = this.foxPos.x + INTRO_CFG.bubble.offsetX;
-        const by = this.foxPos.y + INTRO_CFG.bubble.offsetY;
-        this.updateTalkBubblePosition(bx, by);
-      } else {
-        this.hideTalkBubble();
-      }
-    }
+		if (Phaser.Input.Keyboard.JustDown(this.enterKey)) {
+			this.scene.start("Level1");
+		}
 
-    // End scene after 10s
-    if (this.timer > INTRO_CFG.timings.endSceneAt) {
-      this.scene.start("Level1");
-    }
-  }
+		this.timer += dt;
 
-  showTalkBubble(text) {
-    if (this.bubbleContainer) return;
-    const x = this.foxPos.x + INTRO_CFG.bubble.offsetX;
-    const y = this.foxPos.y + INTRO_CFG.bubble.offsetY;
-    const bubbleWidth = INTRO_CFG.bubble.width;
-    const bubbleHeight = INTRO_CFG.bubble.height;
-    // Bubble container makes moving/destroying simpler
-    const container = this.add.container(x, y);
-    const gfx = this.add.graphics();
-    gfx.fillStyle(INTRO_CFG.bubble.fill, 1);
-    gfx.fillRoundedRect(0, 0, bubbleWidth, bubbleHeight, 10);
-    gfx.lineStyle(2, INTRO_CFG.bubble.stroke, 1);
-    gfx.strokeRoundedRect(0, 0, bubbleWidth, bubbleHeight, 10);
-    const txt = this.add.text(
-      INTRO_CFG.bubble.textPadX,
-      INTRO_CFG.bubble.textPadY,
-      text,
-      { fontFamily: "sans-serif", fontSize: "18px", color: "#141414" },
-    );
-    container.add([gfx, txt]);
-    this.bubbleContainer = container;
-  }
+		if (this.timer > INTRO_CFG.title.fadeDelay && this.textAlpha > 0) {
+			this.textAlpha -= dt / this.textFadeDuration;
+			if (this.textAlpha < 0) this.textAlpha = 0;
+			this.introText.setAlpha(this.textAlpha);
+			if (this.textAlpha === 0) {
+				this.background.setVisible(true);
+				this.setFoxState(this.foxState);
+			} else {
+				this.currentFoxSprite?.setVisible(false);
+				this.hideTalkBubble();
+			}
+		}
 
-  hideTalkBubble() {
-    if (!this.bubbleContainer) return;
-    this.bubbleContainer.destroy(true);
-    this.bubbleContainer = null;
-  }
+		let nextState;
+		if (this.timer < INTRO_CFG.timings.silentEnd) {
+			nextState = STATES.SILENT;
+		} else if (this.timer < INTRO_CFG.timings.talkingEnd) {
+			nextState = STATES.TALKING;
+		} else if (this.timer < INTRO_CFG.timings.flippingEnd) {
+			nextState = STATES.FLIPPING;
+		} else {
+			nextState = STATES.WALKING;
+		}
+		this.foxState = nextState;
 
-  handlePostUpdate() {
-    if (this.storyteller && this.storyteller.isFinished()) {
-      this.storyteller.destroy();
-      this.storyteller = null;
-    }
-    if (this.foxState !== STATES.WALKING) {
-      this.hideTalkBubble();
-    }
-  }
+		if (this.foxState === STATES.TALKING && !this.storyteller) {
+			this.storyteller = new StoryTeller(
+				this,
+				"The Fox awakens to the new day with a hangover curse",
+			);
+		}
+		this.storyteller?.update(dt);
 
-  updateTalkBubblePosition(x, y) {
-    if (this.bubbleContainer) this.bubbleContainer.setPosition(x, y);
-  }
+		if (this.textAlpha === 0) {
+			this.setFoxState(this.foxState);
 
-  cleanup() {
-    this.events.off("postupdate", this.handlePostUpdate, this);
-    this.hideTalkBubble();
-    if (this.storyteller) {
-      this.storyteller.destroy();
-      this.storyteller = null;
-    }
-  }
+			if (this.foxState === STATES.WALKING) {
+				const step = this.walkSpeed * (dt / 16.6667);
+				this.foxPos.x += step;
+				if (this.viewWidth > 0) {
+					this._foxProgress = this.foxPos.x / this.viewWidth;
+				}
+			}
+			this.updateFoxSpritePosition();
 
-  resetSceneState() {
-    this.timer = 0;
-    this.textAlpha = 1;
-    this.foxPos = {
-      x: INTRO_CFG.fox.startX,
-      y: INTRO_CFG.fox.startY - INTRO_CFG.fox.yOffset,
-    };
-    this.foxState = STATES.SILENT;
-    this.storyteller = null;
-    this.bubbleContainer = null;
-    this._lastFoxState = null;
-    this.currentFoxSprite = null;
-  }
+			if (this.foxState === STATES.WALKING) {
+				this.showTalkBubble(INTRO_CFG.bubble.text);
+				const bx = this.foxPos.x + this.bubbleMetrics.offsetX;
+				const by = this.foxPos.y + this.bubbleMetrics.offsetY;
+				this.updateTalkBubblePosition(bx, by);
+			} else {
+				this.hideTalkBubble();
+			}
+		}
 
-  setFoxState(state) {
-    if (this._lastFoxState === state) return;
-    this._lastFoxState = state;
-    this.foxTired?.setVisible(false);
-    this.foxFrown?.setVisible(false);
-    this.foxTiredFlipped?.setVisible(false);
-    switch (state) {
-      case STATES.SILENT:
-      case STATES.TALKING:
-        this.currentFoxSprite = this.foxTiredFlipped;
-        break;
-      case STATES.FLIPPING:
-        this.currentFoxSprite = this.foxTired;
-        break;
-      case STATES.WALKING:
-        this.currentFoxSprite = this.foxFrown;
-        break;
-      default:
-        this.currentFoxSprite = null;
-    }
-    this.currentFoxSprite?.setVisible(true);
-  }
+		if (this.timer > INTRO_CFG.timings.endSceneAt) {
+			this.scene.start("Level1");
+		}
+	}
+
+	updateFoxSpritePosition() {
+		if (!this.foxPos) return;
+		const { x, y } = this.foxPos;
+		[this.foxTired, this.foxFrown, this.foxTiredFlipped].forEach((sprite) => {
+			sprite?.setPosition(x, y);
+		});
+		if (this.currentFoxSprite) {
+			this.currentFoxSprite.setPosition(x, y);
+		}
+	}
+
+	showTalkBubble(text) {
+		if (this.bubbleContainer) return;
+		const m = this.bubbleMetrics;
+		const radius = Math.min(m.width, m.height) * 0.25;
+		const container = this.add.container(
+			this.foxPos.x + m.offsetX,
+			this.foxPos.y + m.offsetY,
+		);
+		const gfx = this.add.graphics();
+		gfx.fillStyle(INTRO_CFG.bubble.fill, 1);
+		gfx.fillRoundedRect(0, 0, m.width, m.height, radius);
+		gfx.lineStyle(2, INTRO_CFG.bubble.stroke, 1);
+		gfx.strokeRoundedRect(0, 0, m.width, m.height, radius);
+		const txt = this.add.text(m.textPadX, m.textPadY, text, {
+			fontFamily: "sans-serif",
+			fontSize: `${m.fontSize}px`,
+			color: "#141414",
+		});
+		container.add([gfx, txt]);
+		this.bubbleContainer = container;
+	}
+
+	hideTalkBubble() {
+		if (!this.bubbleContainer) return;
+		this.bubbleContainer.destroy(true);
+		this.bubbleContainer = null;
+	}
+
+	handlePostUpdate() {
+		if (this.storyteller && this.storyteller.isFinished()) {
+			this.storyteller.destroy();
+			this.storyteller = null;
+		}
+		if (this.foxState !== STATES.WALKING) {
+			this.hideTalkBubble();
+		}
+	}
+
+	updateTalkBubblePosition(x, y) {
+		this.bubbleContainer?.setPosition(x, y);
+	}
+
+	cleanup() {
+		this.events.off("postupdate", this.handlePostUpdate, this);
+		if (this._handleResize) {
+			this.scale.off("resize", this._handleResize, this);
+			this._handleResize = null;
+		}
+		this.hideTalkBubble();
+		this.storyteller?.destroy();
+		this.storyteller = null;
+	}
+
+	resetSceneState() {
+		this.timer = 0;
+		this.textAlpha = 1;
+		const width = this.scale?.gameSize?.width ?? GAME_BASE_WIDTH;
+		const height = this.scale?.gameSize?.height ?? GAME_BASE_HEIGHT;
+		this.viewWidth = width;
+		this.viewHeight = height;
+		const foxYRatio =
+			(INTRO_CFG.fox.startY - INTRO_CFG.fox.yOffset) / GAME_BASE_HEIGHT;
+		this.foxPos = {
+			x: width * this._foxProgress,
+			y: height * foxYRatio,
+		};
+		this.foxState = STATES.SILENT;
+		this.storyteller = null;
+		this.bubbleContainer = null;
+		this.currentFoxSprite = null;
+	}
+
+	setFoxState(state) {
+		this.foxState = state;
+		if (!this.foxTired) return;
+		this.foxTired.setVisible(false);
+		this.foxFrown.setVisible(false);
+		this.foxTiredFlipped.setVisible(false);
+
+		switch (state) {
+			case STATES.SILENT:
+			case STATES.TALKING:
+				this.currentFoxSprite = this.foxTiredFlipped;
+				break;
+			case STATES.FLIPPING:
+				this.currentFoxSprite = this.foxTired;
+				break;
+			case STATES.WALKING:
+				this.currentFoxSprite = this.foxFrown;
+				break;
+			default:
+				this.currentFoxSprite = null;
+		}
+
+		if (this.currentFoxSprite) {
+			this.currentFoxSprite
+				.setVisible(this.textAlpha === 0)
+				.setPosition(this.foxPos.x, this.foxPos.y);
+		}
+	}
 }
+
