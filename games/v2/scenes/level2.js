@@ -1,3 +1,5 @@
+import { segis, getRainbowColor } from "../core/segis.js";
+
 export class Level2 extends Phaser.Scene {
   constructor() {
     super("Level2");
@@ -107,7 +109,7 @@ export class Level2 extends Phaser.Scene {
       this.isWalkable(x, y + clearance);
 
     const startKey = "fox";
-    this.player = this.physics.add.sprite(1000, 1100, startKey).setScale(0.2);
+    this.player = this.physics.add.sprite(1000, 1100, startKey).setScale(0.2).setOrigin(0.5);
     this.player.body.setSize(this.player.width, this.player.height, true);
     this.player.setCollideWorldBounds(true);
     if (this.worldMask) this.player.setMask(this.worldMask);
@@ -156,6 +158,7 @@ export class Level2 extends Phaser.Scene {
       .setVisible(false);
     this.targetPos = new Phaser.Math.Vector2();
     this.transitioning = false;
+    this.touchInteractQueued = false;
     this.enterLevel3 = () => {
       if (this.transitioning) return;
       this.transitioning = true;
@@ -176,13 +179,34 @@ export class Level2 extends Phaser.Scene {
     this.input.on("pointerdown", this.handlePointerDown);
     this.input.on("pointerup", this.handlePointerUp);
     this.input.on("pointermove", this.handlePointerMove);
+    this.car.on("pointerdown", (pointer) => {
+      this.touchInteractQueued = true;
+      this.followPointer = true;
+      this.targetPos.set(pointer.worldX, pointer.worldY);
+    });
     this.car.on("pointerup", () => {
+      if (this.carPrompt?.visible) {
+        this.touchInteractQueued = false;
+        this.enterLevel3();
+      }
+    });
+    this.car.on("pointerout", () => {
       if (!this.carPrompt?.visible) return;
-      this.enterLevel3();
+      this.touchInteractQueued = true;
     });
 
     this.events.once("shutdown", this.cleanupScene, this);
     this.events.once("destroy", this.cleanupScene, this);
+
+    this.segisText = this.add
+      .text(16, 16, "Segis: 0", {
+        fontFamily: "Arial, sans-serif",
+        fontSize: "24px",
+        color: "#ffffff",
+      })
+      .setScrollFactor(0)
+      .setDepth(200);
+    this.segisColorPhase = 0;
   }
 
   snapToNearestWalkable(sprite, maxR = 600) {
@@ -202,7 +226,8 @@ export class Level2 extends Phaser.Scene {
     }
   }
 
-  update() {
+  update(time, delta) {
+    const dt = delta;
     const speed = 220;
     let vx = 0,
       vy = 0;
@@ -296,7 +321,7 @@ export class Level2 extends Phaser.Scene {
       this.player.setRotation(rot);
     }
 
-    this.player.setVelocity(vx, vy);
+  this.player.setVelocity(vx, vy);
 
     // --- Car interaction: show prompt when inside zone; E to go to Level 3 ---
     if (this.carZoneRect) {
@@ -304,9 +329,29 @@ export class Level2 extends Phaser.Scene {
       const py = this.player.y;
       const inside = Phaser.Geom.Rectangle.Contains(this.carZoneRect, px, py);
       this.carPrompt && this.carPrompt.setVisible(inside);
-      if (inside && this.keys.E && Phaser.Input.Keyboard.JustDown(this.keys.E)) {
+      if (
+        inside &&
+        (
+          (this.keys.E && Phaser.Input.Keyboard.JustDown(this.keys.E)) ||
+          this.touchInteractQueued
+        )
+      ) {
+        this.touchInteractQueued = false;
         this.enterLevel3();
       }
+    }
+
+  const segVal = segis.get();
+  const colorSpeed = 0.000005 * segVal;
+  this.segisColorPhase += colorSpeed * dt;
+  segis.update(dt);
+    const rgb = getRainbowColor(this.segisColorPhase % 1);
+    const hex = `#${rgb.r.toString(16).padStart(2, "0")}${rgb.g
+      .toString(16)
+      .padStart(2, "0")}${rgb.b.toString(16).padStart(2, "0")}`;
+    if (this.segisText) {
+      this.segisText.setText(`Segis: ${segVal}`);
+      this.segisText.setColor(hex);
     }
   }
 
@@ -317,12 +362,19 @@ export class Level2 extends Phaser.Scene {
       this.input.off("pointerdown", this.handlePointerDown);
       this.input.off("pointerup", this.handlePointerUp);
       this.input.off("pointermove", this.handlePointerMove);
+      this.car?.off("pointerdown");
       this.car?.off("pointerup");
+      this.car?.off("pointerout");
     }
     this.handlePointerDown = null;
     this.handlePointerUp = null;
     this.handlePointerMove = null;
     this.enterLevel3 = null;
+    this.touchInteractQueued = false;
+    if (this.segisText) {
+      this.segisText.destroy();
+      this.segisText = null;
+    }
     this.carPrompt?.destroy();
     this.carZoneBox?.destroy();
   }

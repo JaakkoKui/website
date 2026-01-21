@@ -1,3 +1,5 @@
+import { segis, getRainbowColor } from "../core/segis.js";
+
 export class Level3 extends Phaser.Scene {
   constructor() { super('Level3'); }
 
@@ -16,7 +18,7 @@ export class Level3 extends Phaser.Scene {
     const srcW = srcImg.naturalWidth || srcImg.width;
     const srcH = srcImg.naturalHeight || srcImg.height;
 
-    const BG_ZOOM = 3.2;
+    const BG_ZOOM = 3.1;
     this.bg = this.add.image(0, 0, bgKey).setOrigin(0).setScale(BG_ZOOM);
 
     // World bounds based on zoomed background
@@ -27,11 +29,11 @@ export class Level3 extends Phaser.Scene {
     const startX = this.worldW * 0.4;
     const startY = this.worldH * 0.5;
     this.player = this.physics.add.sprite(startX, startY, 'car_lvl3');
-    this.poliisi = this.physics.add.sprite(1650, 2500, 'poliisi_car').setFlipX(true).setScale(0.25);
-    this.poliisi = this.physics.add.sprite(2000, 3100, 'poliisi_car').setScale(0.25);
-    this.alcho = this.physics.add.sprite(1860, 2370, 'Alcho').setScale(0.40);
-    const targetW = 56;
-    const baseW = this.player.width || 100;
+    this.poliisiCars = [
+      this.add.image(1650, 2500, 'poliisi_car').setFlipX(true).setScale(0.25),
+      this.add.image(2000, 3100, 'poliisi_car').setScale(0.25),
+    ];
+    this.alcho = this.add.image(1860, 2370, 'Alcho').setScale(0.40);
     this.player.setScale(0.08).setOrigin(0.5, 0.5);
     this.player.body.setSize(this.player.displayWidth, this.player.displayHeight, true);
     this.player.setCollideWorldBounds(true);
@@ -66,9 +68,20 @@ export class Level3 extends Phaser.Scene {
       }
     });
     this.edgeText = null;
+
+    this.segisText = this.add
+      .text(16, 16, "Segis: 0", {
+        fontFamily: "Arial, sans-serif",
+        fontSize: "24px",
+        color: "#ffffff",
+      })
+      .setScrollFactor(0)
+      .setDepth(200);
+    this.segisColorPhase = 0;
   }
 
-  update() {
+  update(time, delta) {
+    const dt = delta;
     const speed = 300;
     let vx = 0, vy = 0;
 
@@ -120,5 +133,18 @@ export class Level3 extends Phaser.Scene {
     const cam = this.cameras.main;
     this.edgeText.setPosition(cam.width / 2, 120);
     this.edgeText.setVisible(nearEdge);
+
+  const segVal = segis.get();
+  const colorSpeed = 0.000005 * segVal;
+  this.segisColorPhase += colorSpeed * dt;
+  segis.update(dt);
+    const rgb = getRainbowColor(this.segisColorPhase % 1);
+    const hex = `#${rgb.r.toString(16).padStart(2, "0")}${rgb.g
+      .toString(16)
+      .padStart(2, "0")}${rgb.b.toString(16).padStart(2, "0")}`;
+    if (this.segisText) {
+      this.segisText.setText(`Segis: ${segVal}`);
+      this.segisText.setColor(hex);
+    }
   }
 }
